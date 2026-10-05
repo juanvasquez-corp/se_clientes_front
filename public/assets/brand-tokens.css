@@ -1,0 +1,52 @@
+/* Aliar front-end visual tokens */
+:root {
+  --aliar-green-950: #003F32;
+  --aliar-green-900: #00533D;
+  --aliar-green-700: #087646;
+  --aliar-green-500: #2F9A50;
+  --aliar-green-100: #E7F6EB;
+
+  --aliar-yellow-500: #F5B900;
+  --aliar-blue-900: #12325B;
+  --aliar-blue-600: #2463A8;
+  --aliar-blue-100: #EAF3FF;
+
+  --aliar-gray-950: #14212B;
+  --aliar-gray-700: #51606E;
+  --aliar-gray-500: #7D8A96;
+  --aliar-gray-300: #CBD4DC;
+  --aliar-gray-100: #F3F6F8;
+  --aliar-white: #FFFFFF;
+
+  --aliar-danger: #D93A45;
+  --aliar-success: #14804A;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  --shadow-card: 0 10px 30px rgba(18, 50, 91, 0.10);
+  --shadow-floating: 0 18px 45px rgba(0, 63, 50, 0.18);
+}
+
+/* Suggested sidebar */
+.app-sidebar {
+  background: linear-gradient(180deg, var(--aliar-green-950), var(--aliar-green-900));
+}
+
+/* Suggested login background */
+.login-hero {
+  background-image:
+    linear-gradient(90deg, rgba(0, 63, 50, .18), rgba(0, 63, 50, .04)),
+    url("./login-background.webp");
+  background-size: cover;
+  background-position: center;
+}
+
+@media (max-width: 768px) {
+  .login-hero {
+    background-image:
+      linear-gradient(180deg, rgba(0, 63, 50, .12), rgba(0, 63, 50, .22)),
+      url("./login-background-mobile.webp");
+  }
+}

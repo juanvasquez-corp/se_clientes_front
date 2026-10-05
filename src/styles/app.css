@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-brand-primary: var(--aliar-green-700);
+  --color-brand-primary-hover: var(--aliar-green-900);
+  --color-brand-strong: var(--aliar-green-950);
+  --color-brand-soft: var(--aliar-green-100);
+  --color-brand-accent: var(--aliar-yellow-500);
+  --color-brand-heading: var(--aliar-blue-900);
+  --color-brand-link: var(--aliar-blue-600);
+  --color-brand-info: var(--aliar-blue-100);
+  --color-surface-page: var(--aliar-gray-100);
+  --color-surface-card: var(--aliar-white);
+  --color-text-primary: var(--aliar-gray-950);
+  --color-text-secondary: var(--aliar-gray-700);
+  --color-text-muted: var(--aliar-gray-500);
+  --color-border-default: var(--aliar-gray-300);
+  --color-status-success: var(--aliar-success);
+  --color-status-danger: var(--aliar-danger);
+  --shadow-brand-card: var(--shadow-card);
+  --shadow-brand-floating: var(--shadow-floating);
+}
+
+:root {
+  font-family:
+    Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+
+body {
+  background: var(--aliar-gray-100);
+  color: var(--aliar-gray-950);
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}
