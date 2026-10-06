@@ -2,7 +2,7 @@
 
 > Especificación transversal del comportamiento frente a la API. Las herramientas, clientes, schemas y archivos concretos pertenecen al plan.
 
-**Estado:** aprobada  
+**Estado:** implementada
 **Versión:** 1.3.0  
 **Fecha:** 2026-10-02  
 **Proyecto:** Gestión de usuarios — Frontend
