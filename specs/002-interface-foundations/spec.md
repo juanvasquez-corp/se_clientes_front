@@ -2,7 +2,7 @@
 
 > Especificación transversal de la experiencia visual. Los componentes, estilos y organización técnica pertenecen al plan.
 
-**Estado:** aprobada  
+**Estado:** implementada
 **Versión:** 1.1.0  
 **Fecha:** 2026-10-02  
 **Proyecto:** Gestión de usuarios — Frontend
