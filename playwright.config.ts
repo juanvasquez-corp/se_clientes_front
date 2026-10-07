@@ -1,4 +1,11 @@
 import { defineConfig, devices } from '@playwright/test'
+import { tmpdir } from 'node:os'
+import { resolve } from 'node:path'
+
+import { resolveE2EOrigins } from './src/test/e2e-origins'
+
+const e2eOrigins = resolveE2EOrigins(process.env)
+const frontendHostname = new URL(e2eOrigins.frontendOrigin).hostname
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -8,9 +15,10 @@ export default defineConfig({
   retries: 0,
   workers: 1,
   reporter: 'line',
-  outputDir: 'test-results',
+  outputDir: resolve(tmpdir(), 'frontend-project-playwright'),
+  preserveOutput: 'never',
   use: {
-    baseURL: 'http://127.0.0.1:5173',
+    baseURL: e2eOrigins.frontendOrigin,
     reducedMotion: 'reduce',
     screenshot: 'off',
     storageState: undefined,
@@ -24,14 +32,14 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: 'npm run dev -- --host 127.0.0.1',
+    command: `npm run dev -- --host ${frontendHostname}`,
     env: {
-      VITE_API_BASE_URL: 'http://127.0.0.1:8000/api',
+      VITE_API_BASE_URL: e2eOrigins.apiBaseUrl,
     },
     reuseExistingServer: false,
     stderr: 'pipe',
     stdout: 'pipe',
     timeout: 120_000,
-    url: 'http://127.0.0.1:5173',
+    url: e2eOrigins.frontendOrigin,
   },
 })

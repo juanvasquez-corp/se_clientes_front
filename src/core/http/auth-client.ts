@@ -1,4 +1,4 @@
-import axios, { type AxiosInstance, type Method } from 'axios'
+import axios, { AxiosHeaders, type AxiosInstance, type Method } from 'axios'
 import type { z } from 'zod'
 
 import {
@@ -26,6 +26,8 @@ const AUTH_PATHS: Record<AuthOperation, string> = {
   refresh: '/api/auth/refresh',
   logout: '/api/auth/logout',
 }
+
+const MAX_RETRY_AFTER_LENGTH = 128
 
 type AuthOperation = keyof AuthEndpoints
 export type AuthRequestFailureReason = 'missing-csrf' | 'unsafe-target'
@@ -124,12 +126,29 @@ async function requestValidated<T>(
     return result.data
   } catch (error: unknown) {
     if (axios.isAxiosError(error)) {
+      const failure = classifyApiFailure(
+        error.response?.status,
+        parseFailureBody(error.response?.data),
+      )
+      const retryAfter = readRetryAfter(error.response?.headers)
       throw new ApiError(
-        classifyApiFailure(error.response?.status, parseFailureBody(error.response?.data)),
+        failure,
+        failure.kind === 'rate-limited' && typeof retryAfter === 'string'
+          ? retryAfter
+          : null,
       )
     }
     throw error
   }
+}
+
+function readRetryAfter(headers: unknown): string | null {
+  if (!(headers instanceof AxiosHeaders)) return null
+
+  const value = headers.get('retry-after')
+  return typeof value === 'string' && value.length <= MAX_RETRY_AFTER_LENGTH
+    ? value
+    : null
 }
 
 function parseFailureBody(data: unknown): unknown {

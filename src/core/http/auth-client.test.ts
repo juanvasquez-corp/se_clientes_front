@@ -191,6 +191,47 @@ describe('authClient network policy', () => {
     expect(JSON.stringify(caughtError)).not.toContain(privatePassword)
   })
 
+  it('retains only the allowlisted Retry-After value from a login 429', async () => {
+    const privatePassword = 'private-password-value'
+    const privateHeader = 'private-header-value'
+    const privateBody = 'private-body-value'
+    server.use(
+      http.post('https://api.example.test/api/auth/login', () =>
+        HttpResponse.json(
+          { detail: privateBody },
+          {
+            status: 429,
+            headers: {
+              'Retry-After': '120',
+              'X-Private-Diagnostic': privateHeader,
+            },
+          },
+        ),
+      ),
+    )
+    let caughtError: unknown
+
+    try {
+      await createAuthClient(createConfig()).login({
+        email: 'ana@example.com',
+        psswd: privatePassword,
+      })
+    } catch (error: unknown) {
+      caughtError = error
+    }
+
+    expect(caughtError).toBeInstanceOf(ApiError)
+    expect(caughtError).toMatchObject({
+      failure: { kind: 'rate-limited', status: 429 },
+      retryAfter: '120',
+    })
+    const serializedError = JSON.stringify(caughtError)
+    expect(serializedError).not.toContain(privatePassword)
+    expect(serializedError).not.toContain(privateHeader)
+    expect(serializedError).not.toContain(privateBody)
+    expect(serializedError).not.toMatch(/response|headers|config|request/i)
+  })
+
   it('sanitizes rejected CSRF-protected requests without retaining the token', async () => {
     const privateCsrf = 'private-csrf-value'
     server.use(

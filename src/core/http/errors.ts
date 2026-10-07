@@ -212,8 +212,9 @@ export function classifyApiFailure(status: number | undefined, body: unknown): A
 
 export class ApiError extends Error {
   readonly failure: ApiFailure
+  readonly retryAfter?: string | null
 
-  constructor(failure: ApiFailure) {
+  constructor(failure: ApiFailure, retryAfter?: string | null) {
     super('La API rechazó la operación.')
     this.name = 'ApiError'
     this.failure =
@@ -230,5 +231,8 @@ export class ApiError extends Error {
             },
             failure.kind === 'conflict' ? failure.explanation : undefined,
           )
+    if (failure.kind === 'rate-limited') {
+      this.retryAfter = retryAfter ?? null
+    }
   }
 }
