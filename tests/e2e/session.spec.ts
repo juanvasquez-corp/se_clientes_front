@@ -214,12 +214,20 @@ test.describe('session lifecycle fixture', () => {
       await page.goto(initialPath)
       await expect(page.getByRole('status')).toContainText('Restaurando sesión')
       await expect(page.getByRole('heading', { name: 'Inicia sesión' })).toHaveCount(0)
-      await expect(page.getByRole('heading', { name: 'Contenido privado' })).toHaveCount(0)
+      await expect(page.getByRole('navigation', { name: 'Navegación principal' })).toHaveCount(0)
       await expect.poll(() => releaseCsrf !== undefined).toBe(true)
       releaseCsrf?.()
 
-      await expect(page).toHaveURL(/\/profile$/u)
-      await expect(page.getByRole('heading', { name: 'Contenido privado' })).toBeVisible()
+      await expect(page).toHaveURL(
+        initialPath === '/unknown' ? /\/forbidden$/u : /\/profile$/u,
+      )
+      if (initialPath === '/unknown') {
+        await expect(page.getByRole('heading', { name: 'Acceso denegado' })).toBeVisible()
+      } else {
+        await expect(
+          page.getByRole('navigation', { name: 'Navegación principal' }),
+        ).toBeVisible()
+      }
       expect(order).toEqual(['csrf', 'refresh', 'profile'])
     })
   }
@@ -237,10 +245,10 @@ test.describe('session lifecycle fixture', () => {
 
     await page.goto('/')
     await expect(page.getByRole('status')).toContainText('Restaurando sesión')
-    await expect(page.getByRole('heading', { name: 'Contenido privado' })).toHaveCount(0)
+    await expect(page.getByRole('navigation', { name: 'Navegación principal' })).toHaveCount(0)
     await expect.poll(() => releaseCsrf !== undefined).toBe(true)
     releaseCsrf?.()
-    await expect(page.getByRole('heading', { name: 'Contenido privado' })).toBeVisible()
+    await expect(page.getByRole('navigation', { name: 'Navegación principal' })).toBeVisible()
   })
 
   test('hides private content until ordered restoration succeeds', async ({ page }) => {
@@ -699,7 +707,7 @@ test('real backend restores and closes a normal session', async ({
   await expect(page).toHaveURL(/\/profile$/u)
 
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: 'Contenido privado' })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Navegación principal' })).toBeVisible()
   expect(order.slice(-3)).toEqual(['csrf', 'refresh', 'profile'])
   const refreshCookie = (await context.cookies()).find(
     ({ name }) => name === 'refresh_token',

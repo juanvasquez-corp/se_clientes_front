@@ -1,95 +1,78 @@
-import { StrictMode, act } from 'react'
+import { QueryClient } from '@tanstack/react-query'
+import { createMemoryHistory } from '@tanstack/react-router'
+import { act, StrictMode } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { screen } from '@testing-library/dom'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import type { LogoutController } from '../features/auth/logout-controller'
-import type { SecurityRecoveryController } from '../features/auth/security-recovery-controller'
-import { createSessionStore } from '../core/session/session-store'
 import type { AppRuntime } from './session-runtime'
+import { createSessionStore } from '../core/session/session-store'
+import { createAppRouter } from './router/router'
+import type { AppRouterContext } from './router/router-context'
 import { App } from './app'
 
 const roots: Root[] = []
 
-function createRuntime(path = '/') {
+function createFixture(initialEntry: string) {
   const sessionStore = createSessionStore()
-  let currentPath = path
-  const listeners = new Set<() => void>()
-  const replace = vi.fn((destination: string) => {
-    currentPath = destination
-    for (const listener of listeners) listener()
+  const restoreInitial = vi.fn(() => {
+    sessionStore.getState().markDead()
+    return Promise.resolve<'dead'>('dead')
   })
-  const restoreInitial = vi.fn(() => new Promise<never>(() => undefined))
-  const retryInitial = vi.fn(() => Promise.resolve('unavailable' as const))
-  const runtime: AppRuntime = {
+  const runtime = {
     sessionStore,
     coordinator: {
       restoreInitial,
-      retryInitial,
+      retryInitial: () => Promise.resolve<'dead'>('dead'),
       cancelInitial: vi.fn(),
     },
     coordinationMode: 'coordinated',
     login: vi.fn(() => Promise.resolve({ kind: 'technical' as const })),
     logoutController: {
       logout: vi.fn(() => Promise.resolve({ kind: 'unavailable' as const })),
-    } satisfies LogoutController,
-    createSecurityRecoveryController: vi.fn(
-      () =>
-        ({
-          operation: 'refresh',
-          restoreProtection: () => Promise.resolve({ kind: 'blocked' }),
-          retryOriginal: () => Promise.resolve({ kind: 'not-ready' }),
-        }) satisfies SecurityRecoveryController,
-    ),
+    },
+    createSecurityRecoveryController: vi.fn(() => ({
+      operation: 'refresh' as const,
+      restoreProtection: () => Promise.resolve({ kind: 'blocked' as const }),
+      retryOriginal: () => Promise.resolve({ kind: 'not-ready' as const }),
+    })),
     navigation: {
-      currentPath: () => currentPath,
-      replace(destination) {
-        replace(destination)
-      },
-      subscribe(listener) {
-        listeners.add(listener)
-        return () => listeners.delete(listener)
-      },
+      currentPath: () => initialEntry,
+      replace: vi.fn(),
+      subscribe: () => () => undefined,
     },
     close: vi.fn(),
+  } satisfies AppRuntime
+  const context: AppRouterContext = {
+    queryClient: new QueryClient(),
+    session: {
+      store: sessionStore,
+      login: runtime.login,
+      logoutController: runtime.logoutController,
+      createSecurityRecoveryController: runtime.createSecurityRecoveryController,
+      coordinator: runtime.coordinator,
+    },
   }
-  return { replace, restoreInitial, runtime, sessionStore }
+  const router = createAppRouter({
+    context,
+    history: createMemoryHistory({ initialEntries: [initialEntry] }),
+  })
+  return { restoreInitial, router, runtime }
 }
 
-function authenticate(
-  sessionStore: ReturnType<typeof createSessionStore>,
-  role: 'superadmin' | 'master' | 'visualizer',
-) {
-  sessionStore.getState().acceptTokens({
-    accessToken: 'fixture-access',
-    tokenType: 'bearer',
-    expiresIn: 120,
-    csrfToken: 'fixture-csrf',
-  })
-  sessionStore.getState().acceptIdentity({
-    userUuid: '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75',
-    name: 'Ana',
-    lastName: null,
-    email: 'ana@example.com',
-    phoneNumber: null,
-    role,
-    isActive: true,
-  })
-}
-
-function renderApp(runtime: AppRuntime) {
+function renderApp(fixture: ReturnType<typeof createFixture>) {
+  vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   const container = document.createElement('div')
+  document.body.append(container)
   const root = createRoot(container)
   roots.push(root)
-  document.body.append(container)
   act(() => {
     root.render(
       <StrictMode>
-        <App runtime={runtime} />
+        <App router={fixture.router} runtime={fixture.runtime} />
       </StrictMode>,
     )
   })
-  return container
 }
 
 afterEach(() => {
@@ -98,129 +81,44 @@ afterEach(() => {
       root.unmount()
     })
   }
+  vi.restoreAllMocks()
 })
 
-describe('real application session shell', () => {
-  it.each(['/', '/login', '/unavailable', '/profile', '/unknown'])(
-    'restores before rendering route content on an initial %s load',
-    (path) => {
-      const { restoreInitial, runtime } = createRuntime(path)
-      renderApp(runtime)
+describe('application router composition', () => {
+  it('mounts the real router and resolves root through one restoration', async () => {
+    const fixture = createFixture('/')
+    renderApp(fixture)
 
-      expect(restoreInitial).toHaveBeenCalledOnce()
-      expect(screen.getByRole('status').textContent).toContain(
-        'Restaurando sesión',
-      )
-      expect(screen.queryByRole('heading', { name: 'Inicia sesión' })).toBeNull()
-      expect(
-        screen.queryByRole('heading', { name: 'Contenido privado' }),
-      ).toBeNull()
-    },
-  )
+    await screen.findByRole('heading', { name: 'Inicia sesión' })
 
-  it('starts restoration at the root and hides private content until authentication', () => {
-    const { restoreInitial, runtime, sessionStore } = createRuntime()
-    renderApp(runtime)
+    expect(fixture.restoreInitial).toHaveBeenCalledTimes(1)
+    expect(fixture.router.state.location.pathname).toBe('/login')
+    expect(screen.queryByText('Contenido privado')).toBeNull()
+  })
 
-    expect(restoreInitial).toHaveBeenCalledOnce()
-    expect(screen.getByRole('status').textContent).toContain('Restaurando sesión')
-    expect(screen.queryByRole('heading', { name: 'Contenido privado' })).toBeNull()
+  it('routes an unknown dead-session path to login without a functional wildcard', async () => {
+    const fixture = createFixture('/dashboard')
+    renderApp(fixture)
 
-    act(() => {
-      sessionStore.getState().acceptTokens({
-        accessToken: 'fixture-access',
-        tokenType: 'bearer',
-        expiresIn: 120,
-        csrfToken: 'fixture-csrf',
+    await screen.findByRole('heading', { name: 'Inicia sesión' })
+
+    expect(fixture.router.state.location.pathname).toBe('/login')
+    expect(Object.hasOwn(fixture.router.routesById, '/$')).toBe(false)
+  })
+
+  it('closes runtime once after the StrictMode app is finally unmounted', async () => {
+    const fixture = createFixture('/login')
+    fixture.runtime.sessionStore.getState().markDead()
+    renderApp(fixture)
+    await screen.findByRole('heading', { name: 'Inicia sesión' })
+
+    for (const root of roots.splice(0)) {
+      act(() => {
+        root.unmount()
       })
-      sessionStore.getState().acceptIdentity({
-        userUuid: '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75',
-        name: 'Ana',
-        lastName: null,
-        email: 'ana@example.com',
-        phoneNumber: null,
-        role: 'master',
-        isActive: true,
-      })
-    })
+    }
+    await Promise.resolve()
 
-    expect(screen.getByRole('heading', { name: 'Contenido privado' })).toBeTruthy()
-  })
-
-  it.each([
-    ['superadmin', '/users'],
-    ['master', '/profile'],
-    ['visualizer', '/profile'],
-  ] as const)('renders only an authorized %s private route at %s', (role, path) => {
-    const { replace, runtime, sessionStore } = createRuntime(path)
-    authenticate(sessionStore, role)
-    renderApp(runtime)
-
-    expect(screen.getByRole('heading', { name: 'Contenido privado' })).toBeTruthy()
-    expect(replace).not.toHaveBeenCalled()
-  })
-
-  it.each([
-    ['superadmin', '/', '/users'],
-    ['superadmin', '/login', '/users'],
-    ['master', '/unavailable', '/profile'],
-    ['master', '/forbidden', '/profile'],
-    ['visualizer', '/unknown', '/profile'],
-    ['master', '/users', '/profile'],
-  ] as const)(
-    'redirects authenticated %s from %s to %s',
-    (role, path, destination) => {
-      const { replace, runtime, sessionStore } = createRuntime(path)
-      authenticate(sessionStore, role)
-      renderApp(runtime)
-
-      expect(replace).toHaveBeenCalledOnce()
-      expect(replace).toHaveBeenCalledWith(destination)
-    },
-  )
-
-  it('renders the real login page on the session login route', () => {
-    const { runtime, sessionStore } = createRuntime('/login')
-    sessionStore.getState().markDead()
-    renderApp(runtime)
-
-    expect(screen.getByRole('heading', { name: 'Inicia sesión' })).toBeTruthy()
-    expect(screen.queryByRole('heading', { name: 'Contenido privado' })).toBeNull()
-  })
-
-  it('renders security recovery on forbidden', () => {
-    const blocked = createRuntime('/forbidden')
-    blocked.sessionStore.getState().acceptTokens({
-      accessToken: 'fixture-access',
-      tokenType: 'bearer',
-      expiresIn: 120,
-      csrfToken: 'fixture-csrf',
-    })
-    blocked.sessionStore.getState().acceptIdentity({
-      userUuid: '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75',
-      name: 'Ana',
-      lastName: null,
-      email: 'ana@example.com',
-      phoneNumber: null,
-      role: 'master',
-      isActive: true,
-    })
-    blocked.sessionStore.getState().markRefreshBlocked()
-    renderApp(blocked.runtime)
-
-    expect(screen.getByRole('heading', { name: 'Protección de sesión' })).toBeTruthy()
-    expect(screen.queryByText('ana@example.com')).toBeNull()
-  })
-
-  it('renders manual restoration retry on unavailable', () => {
-    const unavailable = createRuntime('/unavailable')
-    unavailable.sessionStore.getState().markRestorationUnavailable()
-    renderApp(unavailable.runtime)
-
-    expect(screen.getByRole('status').textContent).toContain(
-      'Servicio no disponible',
-    )
-    expect(screen.getByRole('button', { name: 'Reintentar' })).toBeTruthy()
-    expect(screen.queryByRole('heading', { name: 'Contenido privado' })).toBeNull()
+    expect(fixture.runtime.close).toHaveBeenCalledTimes(1)
   })
 })

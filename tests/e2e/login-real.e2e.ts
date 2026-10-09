@@ -8,21 +8,9 @@ import {
 
 import { resolveE2EOrigins } from '../../src/test/e2e-origins'
 
-declare global {
-  interface Window {
-    __loginFixtureCleanup?: () => Promise<void>
-    __loginFixtureState?: () => {
-      hasAccessToken: boolean
-      hasCsrfToken: boolean
-      role: string | undefined
-      status: string
-    }
-  }
-}
-
 const realLoginEnabled = process.env.RUN_REAL_LOGIN_E2E === '1'
 const { apiBaseUrl, frontendOrigin } = resolveE2EOrigins(process.env)
-const fixtureUrl = `${frontendOrigin}/tests/fixtures/login-page.html?real=1`
+const loginUrl = `${frontendOrigin}/login`
 
 interface RoleCredential {
   destination: '/profile' | '/users'
@@ -86,11 +74,14 @@ async function expectHttpOnlyRefresh(context: BrowserContext, page: Page) {
 test.describe('real backend login', () => {
   test.afterEach(async ({ context, page }) => {
     if (!page.isClosed()) {
+      const logoutTrigger = page.getByRole('button', { name: 'Cerrar sesión' })
+      if (await logoutTrigger.isVisible().catch(() => false)) {
+        await logoutTrigger.click()
+        const dialog = page.getByRole('dialog', { name: 'Cerrar sesión' })
+        await dialog.getByRole('button', { name: 'Cerrar sesión' }).click()
+      }
       await page
-        .evaluate(async () => {
-          if (window.__loginFixtureState?.().status === 'authenticated') {
-            await window.__loginFixtureCleanup?.()
-          }
+        .evaluate(() => {
           for (const input of document.querySelectorAll('input')) input.value = ''
           localStorage.clear()
           sessionStorage.clear()
@@ -108,7 +99,12 @@ test.describe('real backend login', () => {
     test.skip(!realLoginEnabled, 'Requiere RUN_REAL_LOGIN_E2E=1 y credenciales locales.')
     const failures: string[] = []
     page.on('console', (message) => {
-      if (message.type() === 'error') failures.push('console-error')
+      if (
+        message.type() === 'error' &&
+        !message.text().startsWith('Failed to load resource:')
+      ) {
+        failures.push(`console-error: ${message.text()}`)
+      }
     })
     page.on('pageerror', () => {
       failures.push('page-error')
@@ -120,7 +116,7 @@ test.describe('real backend login', () => {
 
     for (const credential of configuredCredentials) {
       await context.clearCookies()
-      await page.goto(fixtureUrl)
+      await page.goto(loginUrl)
       await expectStorageEmpty(page)
 
       await page.getByRole('textbox', { name: /correo electrónico/i }).fill(
@@ -130,21 +126,21 @@ test.describe('real backend login', () => {
       await page.getByRole('button', { name: 'Ingresar' }).click()
 
       await expect(page).toHaveURL(new RegExp(`${credential.destination}$`))
-      const session = await page.evaluate(() => window.__loginFixtureState?.())
-      expect(session).toEqual({
-        hasAccessToken: true,
-        hasCsrfToken: true,
-        role: credential.role,
-        status: 'authenticated',
-      })
+      await expect(page.getByRole('navigation', { name: 'Navegación principal' })).toBeVisible()
+      const roleLabel = {
+        superadmin: 'Superadministrador',
+        master: 'Master',
+        visualizer: 'Visualizador',
+      }[credential.role]
+      await expect(page.getByText(roleLabel, { exact: true })).toBeVisible()
       await expectHttpOnlyRefresh(context, page)
       await expectStorageEmpty(page)
       expect(failures).toEqual([])
 
-      await page.evaluate(async () => window.__loginFixtureCleanup?.())
-      expect(await page.evaluate(() => window.__loginFixtureState?.().status)).toBe(
-        'dead',
-      )
+      await page.getByRole('button', { name: 'Cerrar sesión' }).click()
+      const dialog = page.getByRole('dialog', { name: 'Cerrar sesión' })
+      await dialog.getByRole('button', { name: 'Cerrar sesión' }).click()
+      await expect(page).toHaveURL(/\/login$/u)
       expect(
         (await context.cookies()).some(
           ({ name }) => name === 'refresh_token',

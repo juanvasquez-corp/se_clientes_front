@@ -1,9 +1,10 @@
 import { z } from 'zod'
 
 export const userRoleSchema = z.enum(['superadmin', 'master', 'visualizer'])
+export const userUuidSchema = z.uuid()
 
 export const userResponseSchema = z.strictObject({
-  uuid: z.uuid(),
+  uuid: userUuidSchema,
   name: z.string(),
   last_name: z.string().nullable(),
   email: z.email(),

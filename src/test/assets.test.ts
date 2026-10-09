@@ -46,17 +46,17 @@ describe('Aliar public assets', () => {
   })
 
   it('uses only public runtime paths for the design sources', async () => {
-    const [indexHtml, appCss, appSource] = await Promise.all([
+    const [indexHtml, appCss, navigationSource] = await Promise.all([
       readFile(resolve('index.html'), 'utf8'),
       readFile(resolve('src/styles/app.css'), 'utf8'),
-      readFile(resolve('src/app/app.tsx'), 'utf8'),
+      readFile(resolve('src/shared/layout/sidebar.tsx'), 'utf8'),
     ])
 
     expect(indexHtml).toContain('/assets/brand-tokens.css')
     expect(indexHtml).toContain('/assets/favicon.svg')
-    expect(appSource).toContain('/assets/aliar-logo.svg')
+    expect(navigationSource).toContain('/assets/aliar-logo.svg')
 
-    for (const runtimeSource of [indexHtml, appCss, appSource]) {
+    for (const runtimeSource of [indexHtml, appCss, navigationSource]) {
       expect(runtimeSource).not.toContain('docs/desing')
     }
   })

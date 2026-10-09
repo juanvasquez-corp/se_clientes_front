@@ -1,6 +1,6 @@
 # Spec 006 — Navegación protegida por rol
 
-**Estado:** aprobada  
+**Estado:** implementada
 **Versión:** 1.2.0  
 **Fecha:** 2026-10-02  
 **Proyecto:** Gestión de usuarios — Frontend

@@ -2,9 +2,9 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 
 import { App } from './app/app'
+import { createBrowserApplication } from './app/browser-application'
 import { AppProviders } from './app/providers'
 import { createAppQueryClient } from './app/query-client'
-import { createBrowserSessionRuntime } from './app/session-runtime'
 import { parsePublicEnv } from './config/env'
 import './styles/app.css'
 
@@ -17,7 +17,7 @@ if (!rootElement) {
 }
 
 const queryClient = createAppQueryClient()
-const runtime = createBrowserSessionRuntime({
+const application = createBrowserApplication({
   apiBaseUrl: publicEnv.apiBaseUrl,
   queryClient,
   browserWindow: window,
@@ -26,7 +26,7 @@ const runtime = createBrowserSessionRuntime({
 createRoot(rootElement).render(
   <StrictMode>
     <AppProviders queryClient={queryClient}>
-      <App runtime={runtime} />
+      <App router={application.router} runtime={application.runtime} />
     </AppProviders>
   </StrictMode>,
 )
