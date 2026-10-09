@@ -2,7 +2,7 @@
 
 > Cada tarea futura dura 20–30 minutos, empieza con prueba roja, termina verde y actualiza `MEMORY.md`.
 
-- [ ] **T1. Crear schemas reutilizables y builder de perfil.** RF-6, RF-7
+- [x] **T1. Crear schemas reutilizables y builder de perfil.** RF-6, RF-7
   - Hecho cuando: límites, normalización, conservar/null y payload exacto pasan; `MEMORY.md` actualizado.
 - [ ] **T2. Implementar API y query de perfil.** RF-1, RF-11
   - Hecho cuando: GET/PUT validan Zod, usan AbortSignal y manejan error; `MEMORY.md` actualizado.
