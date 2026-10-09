@@ -4,7 +4,7 @@
 
 - [x] **T1. Crear schemas reutilizables y builder de perfil.** RF-6, RF-7
   - Hecho cuando: límites, normalización, conservar/null y payload exacto pasan; `MEMORY.md` actualizado.
-- [ ] **T2. Implementar API y query de perfil.** RF-1, RF-11
+- [x] **T2. Implementar API y query de perfil.** RF-1, RF-11
   - Hecho cuando: GET/PUT validan Zod, usan AbortSignal y manejan error; `MEMORY.md` actualizado.
 - [ ] **T3. Implementar presentación de datos y nulos.** RF-1, RF-2, RF-5
   - Hecho cuando: seis campos y “No informado” pasan tests; `MEMORY.md` actualizado.
