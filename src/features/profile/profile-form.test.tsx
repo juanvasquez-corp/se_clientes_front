@@ -46,6 +46,7 @@ function renderForm({
         editableContent={
           <ProfileForm
             controllerRef={controllerRef}
+            interaction={{ cancel: () => undefined, state: 'idle' }}
             profile={profile}
             onSubmit={onSubmit}
           />
@@ -195,7 +196,7 @@ describe('ProfileForm', () => {
     },
   )
 
-  it('exposes a typed reset controller without rendering T6 cancel behavior', async () => {
+  it('exposes a typed reset controller for workflow cancellation', async () => {
     const user = userEvent.setup()
     const controllerRef = createRef<ProfileFormController>()
     const { scope } = renderForm({ controllerRef })
@@ -208,7 +209,7 @@ describe('ProfileForm', () => {
     })
 
     expect(name.value).toBe('Confirmado')
-    expect(scope.queryByRole('button', { name: /cancelar/i })).toBeNull()
+    expect(scope.getByRole('button', { name: 'Cancelar' })).toBeTruthy()
   })
 
   it('never mounts a form for visualizer even when an editable form slot is supplied', () => {

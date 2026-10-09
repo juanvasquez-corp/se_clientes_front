@@ -197,6 +197,14 @@ export function reduceSession(
         csrfToken: state.csrfToken,
         identity: event.identity,
       }
+    case 'identity-updated':
+      if (
+        state.status !== 'authenticated' ||
+        state.identity.userUuid !== event.identity.userUuid
+      ) {
+        return state
+      }
+      return { ...state, identity: event.identity }
     case 'session-rejected':
       return deadSessionState
   }

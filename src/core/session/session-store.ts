@@ -16,6 +16,7 @@ export interface SessionStoreActions {
   readonly acceptTokens: (tokens: SessionTokens) => void
   readonly acceptRestorationTokens: (tokens: SessionTokens) => void
   readonly acceptIdentity: (identity: SessionIdentity) => void
+  readonly updateIdentity: (identity: SessionIdentity) => void
   readonly acceptRefreshedTokens: (tokens: SessionTokens) => void
   readonly markRefreshBlocked: () => void
   readonly markRefreshUnavailable: () => void
@@ -64,6 +65,9 @@ export function createSessionStore(config: SessionStoreConfig = {}): SessionStor
     }
     const acceptIdentity = (identity: SessionIdentity) => {
       dispatch({ type: 'identity-validated', identity })
+    }
+    const updateIdentity = (identity: SessionIdentity) => {
+      dispatch({ type: 'identity-updated', identity })
     }
     const acceptRestorationTokens = (tokens: SessionTokens) => {
       const expiration = accessExpiresAt(tokens.expiresIn, now())
@@ -144,6 +148,7 @@ export function createSessionStore(config: SessionStoreConfig = {}): SessionStor
       acceptTokens,
       acceptRestorationTokens,
       acceptIdentity,
+      updateIdentity,
       acceptRefreshedTokens,
       markRefreshBlocked,
       markRefreshUnavailable,

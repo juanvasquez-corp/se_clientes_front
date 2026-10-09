@@ -88,6 +88,36 @@ describe('session reducer', () => {
       identity: undefined,
     })
   })
+
+  it('updates only the authenticated identity for the same validated account', () => {
+    const authenticated = reduceSession(
+      reduceSession(initialSessionState, {
+        type: 'credentials-accepted',
+        credentials: CREDENTIALS,
+      }),
+      { type: 'identity-validated', identity: IDENTITY },
+    )
+    const updatedIdentity = { ...IDENTITY, name: 'Ana Confirmada' }
+
+    expect(
+      reduceSession(authenticated, {
+        type: 'identity-updated',
+        identity: updatedIdentity,
+      }),
+    ).toEqual({ ...authenticated, identity: updatedIdentity })
+    expect(
+      reduceSession(authenticated, {
+        type: 'identity-updated',
+        identity: { ...updatedIdentity, userUuid: 'f55e8c53-f579-4134-980b-84c95acb18ce' },
+      }),
+    ).toBe(authenticated)
+    expect(
+      reduceSession(initialSessionState, {
+        type: 'identity-updated',
+        identity: updatedIdentity,
+      }),
+    ).toBe(initialSessionState)
+  })
 })
 
 describe('access expiration', () => {

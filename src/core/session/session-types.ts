@@ -154,6 +154,10 @@ export type SessionEvent =
       readonly type: 'identity-validated'
       readonly identity: SessionIdentity
     }
+  | {
+      readonly type: 'identity-updated'
+      readonly identity: SessionIdentity
+    }
   | { readonly type: 'session-rejected' }
 
 export const initialSessionState: InitialUnknownSessionState = {

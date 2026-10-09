@@ -9,6 +9,7 @@ import type { z } from 'zod'
 
 import type { UserResponse } from '../../contracts/schemas/user'
 import { Badge } from '../../shared/ui/badge'
+import { Alert } from '../../shared/ui/alert'
 import { Button } from '../../shared/ui/button'
 import { Card } from '../../shared/ui/card'
 import { FormField } from '../../shared/ui/form-field'
@@ -32,8 +33,14 @@ export interface ProfileFormController {
   readonly reset: (profile: UserResponse) => void
 }
 
+export interface ProfileFormInteraction {
+  readonly cancel: () => void
+  readonly state: 'idle' | 'pending'
+}
+
 interface ProfileFormProps {
   readonly controllerRef?: Ref<ProfileFormController>
+  readonly interaction: ProfileFormInteraction
   readonly onSubmit: (payload: ProfileUpdate) => void | Promise<void>
   readonly profile: UserResponse
 }
@@ -56,11 +63,13 @@ function profileDefaultValues(profile: UserResponse): z.input<typeof profileForm
 
 function EditableProfileForm({
   controllerRef,
+  interaction,
   onSubmit,
   profile,
 }: ProfileFormProps) {
   const role = rolePresentation(profile.rol)
   const status = statusPresentation(profile.is_active)
+  const isPending = interaction.state === 'pending'
   const {
     formState: { errors },
     handleSubmit,
@@ -97,7 +106,13 @@ function EditableProfileForm({
   }
 
   return (
-    <form aria-label="Editar perfil" noValidate onSubmit={submitForm} role="form">
+    <form
+      aria-busy={isPending}
+      aria-label="Editar perfil"
+      noValidate
+      onSubmit={submitForm}
+      role="form"
+    >
       <Card.Root>
         <Card.Header>
           <Card.Title level={2}>Información personal</Card.Title>
@@ -132,7 +147,14 @@ function EditableProfileForm({
                   errors.name?.message,
                   'Ingresa un nombre de 1 a 50 caracteres.',
                 )}
-                control={<input type="text" autoComplete="name" {...register('name')} />}
+                control={
+                  <input
+                    type="text"
+                    autoComplete="name"
+                    disabled={isPending}
+                    {...register('name')}
+                  />
+                }
               />
               <FormField
                 id="profile-last-name"
@@ -145,6 +167,7 @@ function EditableProfileForm({
                   <input
                     type="text"
                     autoComplete="family-name"
+                    disabled={isPending}
                     {...register('last_name')}
                   />
                 }
@@ -160,6 +183,7 @@ function EditableProfileForm({
                   <input
                     type="tel"
                     autoComplete="tel"
+                    disabled={isPending}
                     inputMode="tel"
                     {...register('phone_number')}
                   />
@@ -177,16 +201,30 @@ function EditableProfileForm({
                   <input
                     type="email"
                     autoComplete="email"
+                    disabled={isPending}
                     inputMode="email"
                     {...register('email')}
                   />
                 }
               />
             </div>
+            {isPending ? (
+              <Alert.Information announcement="dynamic" title="Guardando cambios">
+                Guardando tus cambios.
+              </Alert.Information>
+            ) : null}
           </div>
         </Card.Content>
         <Card.Actions>
-          <Button.Primary type="submit">Guardar cambios</Button.Primary>
+          <Button.Secondary
+            disabled={isPending}
+            onClick={interaction.cancel}
+          >
+            Cancelar
+          </Button.Secondary>
+          <Button.Primary type="submit" disabled={isPending}>
+            {isPending ? 'Guardando…' : 'Guardar cambios'}
+          </Button.Primary>
         </Card.Actions>
       </Card.Root>
     </form>

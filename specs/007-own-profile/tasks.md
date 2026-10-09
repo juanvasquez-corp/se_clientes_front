@@ -12,7 +12,7 @@
   - Hecho cuando: no existen Guardar/Editar/admin y axe pasa; `MEMORY.md` actualizado.
 - [x] **T5. Implementar formulario master/superadmin.** RF-3, RF-6, RF-7
   - Hecho cuando: solo cuatro campos editables y payload completo pasan; `MEMORY.md` actualizado.
-- [ ] **T6. Integrar pending, éxito y cancelación.** RF-8–RF-10
+- [x] **T6. Integrar pending, éxito y cancelación.** RF-8–RF-10
   - Hecho cuando: doble submit, reset confirmado y toast pasan; `MEMORY.md` actualizado.
 - [ ] **T7. Integrar errores y sesión sin replay.** RF-11
   - Hecho cuando: 401/409/422/red/503 conservan contexto según specs transversales; `MEMORY.md` actualizado.
