@@ -8,7 +8,7 @@
   - Hecho cuando: GET/PUT validan Zod, usan AbortSignal y manejan error; `MEMORY.md` actualizado.
 - [x] **T3. Implementar presentación de datos y nulos.** RF-1, RF-2, RF-5
   - Hecho cuando: seis campos y “No informado” pasan tests; `MEMORY.md` actualizado.
-- [ ] **T4. Implementar modo visualizer.** RF-4
+- [x] **T4. Implementar modo visualizer.** RF-4
   - Hecho cuando: no existen Guardar/Editar/admin y axe pasa; `MEMORY.md` actualizado.
 - [ ] **T5. Implementar formulario master/superadmin.** RF-3, RF-6, RF-7
   - Hecho cuando: solo cuatro campos editables y payload completo pasan; `MEMORY.md` actualizado.
