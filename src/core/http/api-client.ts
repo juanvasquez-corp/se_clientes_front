@@ -31,6 +31,7 @@ export interface SessionOutcome {
 
 export interface ConfirmationOutcome {
   kind: 'requires-confirmation'
+  sensitiveInput: 'clear'
 }
 
 export type ReadOutcome<T> = SuccessOutcome<T> | SessionOutcome
@@ -38,7 +39,7 @@ export type MutationOutcome<T> = SuccessOutcome<T> | SessionOutcome | Confirmati
 
 export interface ApiClientConfig {
   apiBaseUrl: string
-  getAccessToken: () => string | undefined
+  getAccessToken: () => string | null | undefined
   sessionRecovery: SessionRecovery
 }
 
@@ -193,9 +194,11 @@ async function requestValidated<T>(
   }
 }
 
-function requireAccessToken(getAccessToken: () => string | undefined): string {
+function requireAccessToken(
+  getAccessToken: () => string | null | undefined,
+): string {
   const token = getAccessToken()
-  if (token === undefined || token.length === 0) {
+  if (token == null || token.length === 0) {
     throw new ApiRequestError('missing-token')
   }
   return token
@@ -215,6 +218,10 @@ async function recoverSession(sessionRecovery: SessionRecovery): Promise<Recover
 
 function sessionOutcome(state: SessionFailureState): SessionOutcome {
   return { kind: 'session', state }
+}
+
+function confirmationOutcome(): ConfirmationOutcome {
+  return { kind: 'requires-confirmation', sensitiveInput: 'clear' }
 }
 
 export function createApiClient(config: ApiClientConfig): ApiClient {
@@ -264,7 +271,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
 
         const recovery = await recoverSession(config.sessionRecovery)
         return recovery === 'recovered'
-          ? { kind: 'requires-confirmation' }
+          ? confirmationOutcome()
           : sessionOutcome(recovery)
       }
     },
@@ -286,7 +293,7 @@ export function createApiClient(config: ApiClientConfig): ApiClient {
 
         const recovery = await recoverSession(config.sessionRecovery)
         return recovery === 'recovered'
-          ? { kind: 'requires-confirmation' }
+          ? confirmationOutcome()
           : sessionOutcome(recovery)
       }
     },

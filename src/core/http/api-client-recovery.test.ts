@@ -147,7 +147,10 @@ describe('apiClient 401 recovery', () => {
               schema: messageResponseSchema,
             })
 
-      await expect(result).resolves.toEqual({ kind: 'requires-confirmation' })
+      await expect(result).resolves.toEqual({
+        kind: 'requires-confirmation',
+        sensitiveInput: 'clear',
+      })
       expect(requests).toBe(1)
       expect(sessionRecovery.recoverRead).toHaveBeenCalledTimes(1)
     },
@@ -208,7 +211,10 @@ describe('apiClient 401 recovery', () => {
       schema: userResponseSchema,
     })
 
-    expect(outcome).toEqual({ kind: 'requires-confirmation' })
+    expect(outcome).toEqual({
+      kind: 'requires-confirmation',
+      sensitiveInput: 'clear',
+    })
     expect(JSON.stringify(outcome)).not.toContain('private')
   })
 })

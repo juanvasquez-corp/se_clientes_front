@@ -8,6 +8,10 @@ import { createSessionStore } from '../../core/session/session-store'
 import { userRoleSchema } from '../../contracts/schemas/user'
 import { LoginPage } from '../../features/auth/login-page'
 import { parsePublicEnv } from '../../config/env'
+import {
+  directCriticalOperations,
+  silentSessionSignals,
+} from '../session-test-ports'
 import '../../styles/app.css'
 
 declare global {
@@ -40,7 +44,13 @@ const apiClient = createApiClient({
   getAccessToken: () => sessionStore.getState().accessToken,
   sessionRecovery: { recoverRead: () => Promise.resolve('dead') },
 })
-const authApi = createAuthApi({ authClient, apiClient, sessionStore })
+const authApi = createAuthApi({
+  authClient,
+  apiClient,
+  sessionStore,
+  criticalOperations: directCriticalOperations,
+  sessionSignals: silentSessionSignals,
+})
 
 if (fixtureRole.success) {
   sessionStore.getState().stageTokens({

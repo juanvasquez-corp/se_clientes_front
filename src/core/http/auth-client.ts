@@ -41,7 +41,7 @@ export interface AuthEndpoints {
 
 export interface AuthClientConfig {
   apiBaseUrl: string
-  getCsrfToken: () => string | undefined
+  getCsrfToken: () => string | null | undefined
   endpoints?: AuthEndpoints
 }
 
@@ -179,7 +179,7 @@ export function createAuthClient(config: AuthClientConfig): AuthClient {
     async refresh() {
       assertAuthTarget(config.apiBaseUrl, endpoints.refresh, 'refresh')
       const csrfToken = config.getCsrfToken()
-      if (csrfToken === undefined || csrfToken.length === 0) {
+      if (csrfToken == null || csrfToken.length === 0) {
         throw new AuthRequestError('missing-csrf')
       }
       return requestValidated(
@@ -193,7 +193,7 @@ export function createAuthClient(config: AuthClientConfig): AuthClient {
     async logout() {
       assertAuthTarget(config.apiBaseUrl, endpoints.logout, 'logout')
       const csrfToken = config.getCsrfToken()
-      if (csrfToken === undefined || csrfToken.length === 0) {
+      if (csrfToken == null || csrfToken.length === 0) {
         throw new AuthRequestError('missing-csrf')
       }
       return requestValidated(

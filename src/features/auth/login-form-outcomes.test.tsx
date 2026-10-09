@@ -11,6 +11,10 @@ import { createAuthClient } from '../../core/http/auth-client'
 import { createAuthApi } from '../../core/session/auth-api'
 import { createSessionStore } from '../../core/session/session-store'
 import { server } from '../../test/server'
+import {
+  directCriticalOperations,
+  silentSessionSignals,
+} from '../../test/session-test-ports'
 import { LoginForm } from './login-form'
 
 const API_BASE_URL = 'https://api.example.test/api'
@@ -38,7 +42,13 @@ function createRealLoginPort() {
 
   return {
     sessionStore,
-    login: createAuthApi({ authClient, apiClient, sessionStore }).login,
+    login: createAuthApi({
+      authClient,
+      apiClient,
+      sessionStore,
+      criticalOperations: directCriticalOperations,
+      sessionSignals: silentSessionSignals,
+    }).login,
   }
 }
 
@@ -184,7 +194,7 @@ describe('LoginForm failure outcomes', () => {
     expect(email.value).toBe('ana@example.com')
     expect(password.value).toBe('')
     expect(sessionStore.getState()).toMatchObject({
-      status: 'anonymous',
+      status: 'dead',
       accessToken: undefined,
       csrfToken: undefined,
       identity: undefined,

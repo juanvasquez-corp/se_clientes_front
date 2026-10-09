@@ -18,6 +18,7 @@ declare module '@tanstack/react-query' {
 export interface RemoteCacheController {
   clearForLogout: () => void
   clearForAccountChange: () => void
+  clearForSessionEnd: () => void
 }
 
 export function createMutationInvalidationMeta(
@@ -66,6 +67,9 @@ export function createRemoteCacheController(
       queryClient.clear()
     },
     clearForAccountChange() {
+      queryClient.clear()
+    },
+    clearForSessionEnd() {
       queryClient.clear()
     },
   }

@@ -1,67 +1,170 @@
 import { createStore, type StoreApi } from 'zustand/vanilla'
 
-import type { UserRole } from '../../contracts/schemas/user'
+import { accessExpiresAt, reduceSession } from './session-reducer'
+import {
+  initialSessionState,
+  type SessionEvent,
+  type SessionIdentity,
+  type SessionState,
+  type SessionTokens,
+} from './session-types'
 
-export interface SessionIdentity {
-  readonly userUuid: string
-  readonly name: string
-  readonly lastName: string | null
-  readonly email: string
-  readonly phoneNumber: string | null
-  readonly role: UserRole
-  readonly isActive: boolean
-}
+export type { SessionIdentity, SessionTokens } from './session-types'
 
-export interface SessionTokens {
-  readonly accessToken: string
-  readonly tokenType: string
-  readonly expiresIn: number
-  readonly csrfToken: string
-}
-
-export type SessionStatus = 'anonymous' | 'establishing' | 'authenticated'
-
-export interface SessionStoreState {
-  readonly status: SessionStatus
-  readonly accessToken: string | undefined
-  readonly tokenType: string | undefined
-  readonly expiresIn: number | undefined
-  readonly csrfToken: string | undefined
-  readonly identity: SessionIdentity | undefined
+export interface SessionStoreActions {
+  readonly dispatch: (event: SessionEvent) => void
+  readonly acceptTokens: (tokens: SessionTokens) => void
+  readonly acceptRestorationTokens: (tokens: SessionTokens) => void
+  readonly acceptIdentity: (identity: SessionIdentity) => void
+  readonly acceptRefreshedTokens: (tokens: SessionTokens) => void
+  readonly markRefreshBlocked: () => void
+  readonly markRefreshUnavailable: () => void
+  readonly markLogoutBlocked: () => void
+  readonly beginRestoration: () => void
+  readonly acceptRestorationCsrf: (csrfToken: string) => void
+  readonly markRestorationUnavailable: () => void
+  readonly markRestorationForbidden: () => void
+  readonly markReplacementRefreshBlocked: (identity: SessionIdentity) => void
+  readonly markSecurityProtectionRestored: () => void
+  readonly markSecurityRecoveryBlocked: () => void
+  readonly markSecurityRecoveryUnavailable: () => void
+  readonly acceptSecurityRefreshedTokens: (tokens: SessionTokens) => void
+  readonly markDead: () => void
+  readonly getAccessToken: () => string | null | undefined
+  readonly getCsrfToken: () => string | null | undefined
   readonly stageTokens: (tokens: SessionTokens) => void
   readonly completeSession: (identity: SessionIdentity) => void
   readonly clearSession: () => void
 }
 
-const EMPTY_SESSION = {
-  status: 'anonymous',
-  accessToken: undefined,
-  tokenType: undefined,
-  expiresIn: undefined,
-  csrfToken: undefined,
-  identity: undefined,
-} as const
-
+export type SessionStoreState = SessionState & SessionStoreActions
 export type SessionStore = StoreApi<SessionStoreState>
 
-export function createSessionStore(): SessionStore {
-  return createStore<SessionStoreState>()((set) => ({
-    ...EMPTY_SESSION,
-    stageTokens: (tokens) => {
-      set({
-        status: 'establishing',
-        accessToken: tokens.accessToken,
-        tokenType: tokens.tokenType,
-        expiresIn: tokens.expiresIn,
-        csrfToken: tokens.csrfToken,
-        identity: undefined,
+export interface SessionStoreConfig {
+  readonly now?: () => Date
+}
+
+export function createSessionStore(config: SessionStoreConfig = {}): SessionStore {
+  const now = config.now ?? (() => new Date())
+
+  return createStore<SessionStoreState>()((set, get) => {
+    const dispatch = (event: SessionEvent) => {
+      set((current) => ({ ...reduceSession(current, event), ...actions }))
+    }
+    const acceptTokens = (tokens: SessionTokens) => {
+      const expiration = accessExpiresAt(tokens.expiresIn, now())
+      if (expiration === undefined) {
+        dispatch({ type: 'session-rejected' })
+        return
+      }
+      dispatch({
+        type: 'credentials-accepted',
+        credentials: { ...tokens, accessExpiresAt: expiration },
       })
-    },
-    completeSession: (identity) => {
-      set({ status: 'authenticated', identity })
-    },
-    clearSession: () => {
-      set(EMPTY_SESSION)
-    },
-  }))
+    }
+    const acceptIdentity = (identity: SessionIdentity) => {
+      dispatch({ type: 'identity-validated', identity })
+    }
+    const acceptRestorationTokens = (tokens: SessionTokens) => {
+      const expiration = accessExpiresAt(tokens.expiresIn, now())
+      if (expiration === undefined) {
+        dispatch({ type: 'session-rejected' })
+        return
+      }
+      dispatch({
+        type: 'restoration-credentials-accepted',
+        credentials: { ...tokens, accessExpiresAt: expiration },
+      })
+    }
+    const acceptRefreshedTokens = (tokens: SessionTokens) => {
+      const expiration = accessExpiresAt(tokens.expiresIn, now())
+      if (expiration === undefined) {
+        dispatch({ type: 'session-rejected' })
+        return
+      }
+      dispatch({
+        type: 'refresh-succeeded',
+        credentials: { ...tokens, accessExpiresAt: expiration },
+      })
+    }
+    const markRefreshBlocked = () => {
+      dispatch({ type: 'refresh-blocked' })
+    }
+    const markRefreshUnavailable = () => {
+      dispatch({ type: 'refresh-unavailable' })
+    }
+    const markLogoutBlocked = () => {
+      dispatch({ type: 'logout-blocked' })
+    }
+    const markDead = () => {
+      dispatch({ type: 'session-rejected' })
+    }
+    const beginRestoration = () => {
+      dispatch({ type: 'restoration-started' })
+    }
+    const acceptRestorationCsrf = (csrfToken: string) => {
+      dispatch({ type: 'restoration-csrf-accepted', csrfToken })
+    }
+    const markRestorationUnavailable = () => {
+      dispatch({ type: 'restoration-unavailable' })
+    }
+    const markRestorationForbidden = () => {
+      dispatch({ type: 'restoration-forbidden' })
+    }
+    const markReplacementRefreshBlocked = (identity: SessionIdentity) => {
+      dispatch({ type: 'replacement-refresh-blocked', identity })
+    }
+    const markSecurityProtectionRestored = () => {
+      dispatch({ type: 'security-protection-restored' })
+    }
+    const markSecurityRecoveryBlocked = () => {
+      dispatch({ type: 'security-recovery-blocked' })
+    }
+    const markSecurityRecoveryUnavailable = () => {
+      dispatch({ type: 'security-recovery-unavailable' })
+    }
+    const acceptSecurityRefreshedTokens = (tokens: SessionTokens) => {
+      const expiration = accessExpiresAt(tokens.expiresIn, now())
+      if (expiration === undefined) {
+        dispatch({ type: 'session-rejected' })
+        return
+      }
+      dispatch({
+        type: 'security-refresh-succeeded',
+        credentials: { ...tokens, accessExpiresAt: expiration },
+      })
+    }
+    const getUsableCredential = (credential: 'accessToken' | 'csrfToken') => {
+      const state = get()
+      if (state.status === 'blocked' || state.status === 'unavailable') return null
+      return state[credential]
+    }
+    const actions: SessionStoreActions = {
+      dispatch,
+      acceptTokens,
+      acceptRestorationTokens,
+      acceptIdentity,
+      acceptRefreshedTokens,
+      markRefreshBlocked,
+      markRefreshUnavailable,
+      markLogoutBlocked,
+      markDead,
+      beginRestoration,
+      acceptRestorationCsrf,
+      markRestorationUnavailable,
+      markRestorationForbidden,
+      markReplacementRefreshBlocked,
+      markSecurityProtectionRestored,
+      markSecurityRecoveryBlocked,
+      markSecurityRecoveryUnavailable,
+      acceptSecurityRefreshedTokens,
+      getAccessToken: () => getUsableCredential('accessToken'),
+      getCsrfToken: () => getUsableCredential('csrfToken'),
+      stageTokens: acceptTokens,
+      completeSession: acceptIdentity,
+      clearSession: markDead,
+    }
+
+    return { ...initialSessionState, ...actions }
+  })
 }

@@ -7,15 +7,19 @@ declare global {
   }
 }
 
-test('renders the bootstrap without blocking accessibility violations', async ({
+test('renders the session bootstrap without exposing private content', async ({
   page,
 }) => {
   await page.goto('/')
 
-  await expect(
-    page.getByRole('heading', { name: 'Gestión de usuarios' }),
-  ).toBeVisible()
-  await expect(page.getByAltText('Aliar S.A.')).toBeVisible()
+  await expect
+    .poll(
+      async () =>
+        (await page.getByRole('status').count()) +
+        (await page.getByRole('heading', { name: 'Inicia sesión' }).count()),
+    )
+    .toBeGreaterThan(0)
+  await expect(page.getByRole('heading', { name: 'Contenido privado' })).toHaveCount(0)
   await expect(
     page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches),
   ).resolves.toBe(true)

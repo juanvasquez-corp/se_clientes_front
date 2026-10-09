@@ -1,6 +1,6 @@
 # Spec 005 — Ciclo de vida y coordinación de sesión
 
-**Estado:** aprobada  
+**Estado:** implementada
 **Versión:** 1.3.0  
 **Fecha:** 2026-10-02  
 **Proyecto:** Gestión de usuarios — Frontend

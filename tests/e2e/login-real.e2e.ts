@@ -100,26 +100,25 @@ test.describe('real backend login', () => {
     await context.clearCookies()
   })
 
-  test('loads explicit local prerequisites when opted in', () => {
+  test('each configured role authenticates and reaches its normative destination', async ({
+    context,
+    page,
+    request,
+  }) => {
     test.skip(!realLoginEnabled, 'Requiere RUN_REAL_LOGIN_E2E=1 y credenciales locales.')
-    expect(credentials()).toHaveLength(3)
-  })
+    const failures: string[] = []
+    page.on('console', (message) => {
+      if (message.type() === 'error') failures.push('console-error')
+    })
+    page.on('pageerror', () => {
+      failures.push('page-error')
+    })
 
-  for (const credential of realLoginEnabled ? credentials() : []) {
-    test(`${credential.role} authenticates and reaches its normative destination`, async ({
-      context,
-      page,
-      request,
-    }) => {
-      const failures: string[] = []
-      page.on('console', (message) => {
-        if (message.type() === 'error') failures.push('console-error')
-      })
-      page.on('pageerror', () => {
-        failures.push('page-error')
-      })
+    await expectBackendAvailable(request)
+    const configuredCredentials = credentials()
+    expect(configuredCredentials).toHaveLength(3)
 
-      await expectBackendAvailable(request)
+    for (const credential of configuredCredentials) {
       await context.clearCookies()
       await page.goto(fixtureUrl)
       await expectStorageEmpty(page)
@@ -144,7 +143,7 @@ test.describe('real backend login', () => {
 
       await page.evaluate(async () => window.__loginFixtureCleanup?.())
       expect(await page.evaluate(() => window.__loginFixtureState?.().status)).toBe(
-        'anonymous',
+        'dead',
       )
       expect(
         (await context.cookies()).some(
@@ -152,6 +151,6 @@ test.describe('real backend login', () => {
         ),
       ).toBe(false)
       await expectStorageEmpty(page)
-    })
-  }
+    }
+  })
 })

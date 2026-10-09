@@ -9,7 +9,7 @@ const frontendHostname = new URL(e2eOrigins.frontendOrigin).hostname
 
 export default defineConfig({
   testDir: './tests/e2e',
-  testMatch: '**/*.e2e.ts',
+  testMatch: ['**/*.e2e.ts', '**/session.spec.ts'],
   fullyParallel: false,
   forbidOnly: true,
   retries: 0,

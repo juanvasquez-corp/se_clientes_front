@@ -4,10 +4,11 @@ import { createRoot } from 'react-dom/client'
 import { App } from './app/app'
 import { AppProviders } from './app/providers'
 import { createAppQueryClient } from './app/query-client'
+import { createBrowserSessionRuntime } from './app/session-runtime'
 import { parsePublicEnv } from './config/env'
 import './styles/app.css'
 
-parsePublicEnv(import.meta.env)
+const publicEnv = parsePublicEnv(import.meta.env)
 
 const rootElement = document.getElementById('root')
 
@@ -16,11 +17,16 @@ if (!rootElement) {
 }
 
 const queryClient = createAppQueryClient()
+const runtime = createBrowserSessionRuntime({
+  apiBaseUrl: publicEnv.apiBaseUrl,
+  queryClient,
+  browserWindow: window,
+})
 
 createRoot(rootElement).render(
   <StrictMode>
     <AppProviders queryClient={queryClient}>
-      <App />
+      <App runtime={runtime} />
     </AppProviders>
   </StrictMode>,
 )
