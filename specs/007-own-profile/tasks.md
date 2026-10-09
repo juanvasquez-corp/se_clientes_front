@@ -10,7 +10,7 @@
   - Hecho cuando: seis campos y “No informado” pasan tests; `MEMORY.md` actualizado.
 - [x] **T4. Implementar modo visualizer.** RF-4
   - Hecho cuando: no existen Guardar/Editar/admin y axe pasa; `MEMORY.md` actualizado.
-- [ ] **T5. Implementar formulario master/superadmin.** RF-3, RF-6, RF-7
+- [x] **T5. Implementar formulario master/superadmin.** RF-3, RF-6, RF-7
   - Hecho cuando: solo cuatro campos editables y payload completo pasan; `MEMORY.md` actualizado.
 - [ ] **T6. Integrar pending, éxito y cancelación.** RF-8–RF-10
   - Hecho cuando: doble submit, reset confirmado y toast pasan; `MEMORY.md` actualizado.
