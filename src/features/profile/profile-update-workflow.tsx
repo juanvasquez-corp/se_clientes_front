@@ -1,10 +1,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { useLayoutEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
+import { useStore } from 'zustand/react'
 
 import type { UserResponse } from '../../contracts/schemas/user'
+import { ApiError } from '../../core/http/errors'
+import { mapValidationIssues } from '../../core/http/validation-errors'
 import type { SessionIdentity } from '../../core/session/session-store'
 import type { SessionStore } from '../../core/session/session-store'
 import { Alert } from '../../shared/ui/alert'
+import { Button } from '../../shared/ui/button'
 import { useToast } from '../../shared/ui/toast-context'
 import type { ProfileApi } from './profile-api'
 import { ProfileContent } from './profile-content'
@@ -16,16 +21,26 @@ import type { ProfileUpdate } from './profile-form-schema'
 import { profileQueryKey } from './profile-query'
 
 interface ProfileUpdateWorkflowProps {
+  readonly navigate: (
+    destination: '/forbidden' | '/login' | '/unavailable',
+  ) => void
   readonly profile: UserResponse
   readonly profileApi: Pick<ProfileApi, 'update'>
   readonly sessionStore: SessionStore
 }
 
-type WorkflowState = 'error' | 'idle' | 'pending'
+type WorkflowFeedback =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'pending' }
+  | { readonly kind: 'confirmation' }
+  | { readonly kind: 'conflict'; readonly explanation: string }
+  | { readonly kind: 'validation' }
+  | { readonly kind: 'unavailable' }
+  | { readonly kind: 'technical'; readonly retry: 'manual' | 'none' }
 
 interface AccountWorkflowState {
   readonly accountUuid: string
-  readonly state: WorkflowState
+  readonly feedback: WorkflowFeedback
 }
 
 interface ConfirmedProfileState {
@@ -37,6 +52,13 @@ interface MutationVariables {
   readonly payload: ProfileUpdate
   readonly signal: AbortSignal
 }
+
+const PROFILE_UPDATE_FIELDS = [
+  'name',
+  'last_name',
+  'phone_number',
+  'email',
+] as const satisfies readonly (keyof ProfileUpdate)[]
 
 function toSessionIdentity(profile: UserResponse): SessionIdentity {
   return {
@@ -51,6 +73,7 @@ function toSessionIdentity(profile: UserResponse): SessionIdentity {
 }
 
 export function ProfileUpdateWorkflow({
+  navigate,
   profile,
   profileApi,
   sessionStore,
@@ -62,18 +85,24 @@ export function ProfileUpdateWorkflow({
   const requestVersion = useRef(0)
   const submitLock = useRef(false)
   const activeAccountUuid = useRef(profile.uuid)
+  const sessionIsAuthenticated = useStore(
+    sessionStore,
+    (state) => state.status === 'authenticated',
+  )
   const [confirmedState, setConfirmedState] = useState<ConfirmedProfileState>({
     accountUuid: profile.uuid,
     profile,
   })
   const [workflowState, setWorkflowState] = useState<AccountWorkflowState>({
     accountUuid: profile.uuid,
-    state: 'idle',
+    feedback: { kind: 'idle' },
   })
   const confirmedProfile =
     confirmedState.accountUuid === profile.uuid ? confirmedState.profile : profile
-  const currentWorkflowState =
-    workflowState.accountUuid === profile.uuid ? workflowState.state : 'idle'
+  const currentFeedback =
+    workflowState.accountUuid === profile.uuid
+      ? workflowState.feedback
+      : { kind: 'idle' as const }
   const mutation = useMutation({
     mutationFn: ({ payload, signal }: MutationVariables) =>
       profileApi.update(payload, signal),
@@ -99,7 +128,10 @@ export function ProfileUpdateWorkflow({
     const requestAccountUuid = profile.uuid
     const abortController = new AbortController()
     activeAbortController.current = abortController
-    setWorkflowState({ accountUuid: requestAccountUuid, state: 'pending' })
+    setWorkflowState({
+      accountUuid: requestAccountUuid,
+      feedback: { kind: 'pending' },
+    })
 
     try {
       const outcome = await mutation.mutateAsync({
@@ -112,8 +144,36 @@ export function ProfileUpdateWorkflow({
       ) {
         return
       }
-      if (outcome.kind !== 'success' || outcome.data.uuid !== requestAccountUuid) {
-        setWorkflowState({ accountUuid: requestAccountUuid, state: 'error' })
+      if (outcome.kind === 'requires-confirmation') {
+        setWorkflowState({
+          accountUuid: requestAccountUuid,
+          feedback: { kind: 'confirmation' },
+        })
+        return
+      }
+      if (outcome.kind === 'session') {
+        switch (outcome.state) {
+          case 'dead':
+            sessionStore.getState().markDead()
+            queryClient.clear()
+            navigate('/login')
+            break
+          case 'blocked':
+            sessionStore.getState().markRefreshBlocked()
+            navigate('/forbidden')
+            break
+          case 'unavailable':
+            sessionStore.getState().markRefreshUnavailable()
+            navigate('/unavailable')
+            break
+        }
+        return
+      }
+      if (outcome.data.uuid !== requestAccountUuid) {
+        setWorkflowState({
+          accountUuid: requestAccountUuid,
+          feedback: { kind: 'technical', retry: 'none' },
+        })
         return
       }
 
@@ -132,13 +192,58 @@ export function ProfileUpdateWorkflow({
         dedupeKey: `profile-update-${requestAccountUuid}`,
         message: 'Cambios guardados correctamente.',
       })
-      setWorkflowState({ accountUuid: requestAccountUuid, state: 'idle' })
-    } catch {
+      setWorkflowState({
+        accountUuid: requestAccountUuid,
+        feedback: { kind: 'idle' },
+      })
+    } catch (error: unknown) {
       if (
         requestVersion.current === version &&
         activeAccountUuid.current === requestAccountUuid
       ) {
-        setWorkflowState({ accountUuid: requestAccountUuid, state: 'error' })
+        if (error instanceof ApiError) {
+          const failure = error.failure
+          if (failure.kind === 'validation') {
+            const validation = mapValidationIssues(
+              failure.issues,
+              PROFILE_UPDATE_FIELDS,
+            )
+            flushSync(() => {
+              setWorkflowState({
+                accountUuid: requestAccountUuid,
+                feedback: { kind: 'validation' },
+              })
+              formController.current?.setServerErrors(validation.fields)
+            })
+          } else if (failure.kind === 'conflict') {
+            setWorkflowState({
+              accountUuid: requestAccountUuid,
+              feedback: {
+                kind: 'conflict',
+                explanation:
+                  failure.explanation ??
+                  'No fue posible guardar porque los datos entran en conflicto.',
+              },
+            })
+          } else if (failure.kind === 'unavailable') {
+            setWorkflowState({
+              accountUuid: requestAccountUuid,
+              feedback: { kind: 'unavailable' },
+            })
+          } else if (failure.kind === 'forbidden') {
+            navigate('/forbidden')
+          } else {
+            setWorkflowState({
+              accountUuid: requestAccountUuid,
+              feedback: { kind: 'technical', retry: failure.retry },
+            })
+          }
+        } else {
+          setWorkflowState({
+            accountUuid: requestAccountUuid,
+            feedback: { kind: 'technical', retry: 'manual' },
+          })
+        }
       }
     } finally {
       if (requestVersion.current === version) {
@@ -149,26 +254,85 @@ export function ProfileUpdateWorkflow({
   }
 
   const cancel = () => {
-    if (submitLock.current || currentWorkflowState === 'pending') return
+    if (submitLock.current || currentFeedback.kind === 'pending') return
 
     mutation.reset()
-    setWorkflowState({ accountUuid: profile.uuid, state: 'idle' })
+    setWorkflowState({
+      accountUuid: profile.uuid,
+      feedback: { kind: 'idle' },
+    })
     formController.current?.reset(confirmedProfile)
+  }
+
+  const retry = () => {
+    formController.current?.submit()
+  }
+
+  if (!sessionIsAuthenticated) return null
+
+  let feedbackContent = null
+  switch (currentFeedback.kind) {
+    case 'idle':
+    case 'pending':
+      break
+    case 'confirmation':
+      feedbackContent = (
+        <Alert.Information announcement="dynamic" title="Sesión renovada">
+          Tu sesión fue renovada. Confirma para guardar.
+        </Alert.Information>
+      )
+      break
+    case 'conflict':
+      feedbackContent = (
+        <Alert.Error announcement="dynamic" title="No pudimos guardar los cambios">
+          {currentFeedback.explanation}
+        </Alert.Error>
+      )
+      break
+    case 'validation':
+      feedbackContent = (
+        <Alert.Error announcement="dynamic" title="Revisa la información">
+          Revisa los campos señalados y vuelve a intentar.
+        </Alert.Error>
+      )
+      break
+    case 'unavailable':
+      feedbackContent = (
+        <div className="grid gap-3">
+          <Alert.Error announcement="dynamic" title="Servicio no disponible">
+            El servicio no está disponible.
+          </Alert.Error>
+          <div>
+            <Button.Secondary onClick={retry}>Reintentar guardado</Button.Secondary>
+          </div>
+        </div>
+      )
+      break
+    case 'technical':
+      feedbackContent = (
+        <div className="grid gap-3">
+          <Alert.Error announcement="dynamic" title="Error técnico">
+            No fue posible guardar los cambios de forma segura.
+          </Alert.Error>
+          {currentFeedback.retry === 'manual' ? (
+            <div>
+              <Button.Secondary onClick={retry}>Reintentar guardado</Button.Secondary>
+            </div>
+          ) : null}
+        </div>
+      )
+      break
   }
 
   const editableContent = (
     <div className="grid gap-4">
-      {currentWorkflowState === 'error' ? (
-        <Alert.Error announcement="dynamic" title="No pudimos guardar los cambios">
-          Tus cambios siguen disponibles. Intenta nuevamente.
-        </Alert.Error>
-      ) : null}
+      {feedbackContent}
       <ProfileForm
         key={profile.uuid}
         controllerRef={formController}
         interaction={{
           cancel,
-          state: currentWorkflowState === 'pending' ? 'pending' : 'idle',
+          state: currentFeedback.kind === 'pending' ? 'pending' : 'idle',
         }}
         onSubmit={submit}
         profile={confirmedProfile}

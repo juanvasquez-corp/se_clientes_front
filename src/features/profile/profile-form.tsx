@@ -1,10 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
+  useCallback,
   useImperativeHandle,
   type BaseSyntheticEvent,
   type Ref,
 } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, type FieldError } from 'react-hook-form'
 import type { z } from 'zod'
 
 import type { UserResponse } from '../../contracts/schemas/user'
@@ -31,6 +32,10 @@ interface FieldValidation {
 
 export interface ProfileFormController {
   readonly reset: (profile: UserResponse) => void
+  readonly setServerErrors: (
+    errors: Partial<Record<keyof ProfileUpdate, string>>,
+  ) => void
+  readonly submit: () => void
 }
 
 export interface ProfileFormInteraction {
@@ -46,11 +51,26 @@ interface ProfileFormProps {
 }
 
 function fieldValidation(
-  issue: string | undefined,
-  message: string,
+  issue: FieldError | undefined,
+  fallbackMessage: string,
 ): FieldValidation | undefined {
-  return issue === undefined ? undefined : { message, status: 'error' }
+  if (issue === undefined) return undefined
+
+  return {
+    message:
+      issue.type === 'server' && issue.message !== undefined
+        ? issue.message
+        : fallbackMessage,
+    status: 'error',
+  }
 }
+
+const PROFILE_FIELD_ORDER = [
+  'name',
+  'last_name',
+  'phone_number',
+  'email',
+] as const satisfies readonly (keyof ProfileUpdate)[]
 
 function profileDefaultValues(profile: UserResponse): z.input<typeof profileFormSchema> {
   return {
@@ -72,9 +92,12 @@ function EditableProfileForm({
   const isPending = interaction.state === 'pending'
   const {
     formState: { errors },
+    clearErrors,
     handleSubmit,
     register,
     reset,
+    setError,
+    setFocus,
   } = useForm<
     z.input<typeof profileFormSchema>,
     unknown,
@@ -85,25 +108,45 @@ function EditableProfileForm({
     shouldFocusError: true,
   })
 
+  const handleValidSubmit = useCallback(
+    async (values: z.output<typeof profileFormSchema>): Promise<void> => {
+      await onSubmit(buildProfileUpdate(values))
+    },
+    [onSubmit],
+  )
+
+  const submitForm = (event: BaseSyntheticEvent) => {
+    void handleSubmit(handleValidSubmit)(event)
+  }
+
   useImperativeHandle(
     controllerRef,
     () => ({
       reset(confirmedProfile) {
         reset(profileDefaultValues(confirmedProfile))
       },
+      setServerErrors(serverErrors) {
+        clearErrors()
+        let firstField: keyof ProfileUpdate | undefined
+        for (const field of PROFILE_FIELD_ORDER) {
+          const message = serverErrors[field]
+          if (message === undefined) continue
+
+          firstField ??= field
+          setError(field, { message, type: 'server' })
+        }
+        if (firstField !== undefined) {
+          queueMicrotask(() => {
+            setFocus(firstField)
+          })
+        }
+      },
+      submit() {
+        void handleSubmit(handleValidSubmit)()
+      },
     }),
-    [reset],
+    [clearErrors, handleSubmit, handleValidSubmit, reset, setError, setFocus],
   )
-
-  const handleValidSubmit = async (
-    values: z.output<typeof profileFormSchema>,
-  ): Promise<void> => {
-    await onSubmit(buildProfileUpdate(values))
-  }
-
-  const submitForm = (event: BaseSyntheticEvent) => {
-    void handleSubmit(handleValidSubmit)(event)
-  }
 
   return (
     <form
@@ -144,7 +187,7 @@ function EditableProfileForm({
                 label="Nombre"
                 requirement="required"
                 validation={fieldValidation(
-                  errors.name?.message,
+                  errors.name,
                   'Ingresa un nombre de 1 a 50 caracteres.',
                 )}
                 control={
@@ -160,7 +203,7 @@ function EditableProfileForm({
                 id="profile-last-name"
                 label="Apellido"
                 validation={fieldValidation(
-                  errors.last_name?.message,
+                  errors.last_name,
                   'El apellido debe tener entre 1 y 50 caracteres.',
                 )}
                 control={
@@ -176,7 +219,7 @@ function EditableProfileForm({
                 id="profile-phone-number"
                 label="Teléfono"
                 validation={fieldValidation(
-                  errors.phone_number?.message,
+                  errors.phone_number,
                   'El teléfono debe tener entre 7 y 20 caracteres.',
                 )}
                 control={
@@ -194,7 +237,7 @@ function EditableProfileForm({
                 label="Correo electrónico"
                 requirement="required"
                 validation={fieldValidation(
-                  errors.email?.message,
+                  errors.email,
                   'Ingresa un correo electrónico válido.',
                 )}
                 control={
