@@ -6,7 +6,7 @@
   - Hecho cuando: límites, normalización, conservar/null y payload exacto pasan; `MEMORY.md` actualizado.
 - [x] **T2. Implementar API y query de perfil.** RF-1, RF-11
   - Hecho cuando: GET/PUT validan Zod, usan AbortSignal y manejan error; `MEMORY.md` actualizado.
-- [ ] **T3. Implementar presentación de datos y nulos.** RF-1, RF-2, RF-5
+- [x] **T3. Implementar presentación de datos y nulos.** RF-1, RF-2, RF-5
   - Hecho cuando: seis campos y “No informado” pasan tests; `MEMORY.md` actualizado.
 - [ ] **T4. Implementar modo visualizer.** RF-4
   - Hecho cuando: no existen Guardar/Editar/admin y axe pasa; `MEMORY.md` actualizado.
