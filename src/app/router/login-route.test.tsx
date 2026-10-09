@@ -14,8 +14,10 @@ import {
   type SessionStore,
 } from '../../core/session/session-store'
 import type { LoginInput } from '../../features/auth/login-schema'
+import { createProfileApiStub } from '../../test/profile-api-stub'
 import { createAppRouter } from './router'
 import type { AppRouterContext } from './router-context'
+import { AppProviders } from '../providers'
 
 const roots: Root[] = []
 const USER_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
@@ -66,6 +68,7 @@ function createLoginRouter({
       store,
       login,
       logoutController: { logout: () => Promise.resolve({ kind: 'logged-out' }) },
+      profileApi: createProfileApiStub(),
       createSecurityRecoveryController: () => ({
         operation: 'refresh',
         restoreProtection: () => Promise.resolve({ kind: 'restored' }),
@@ -92,7 +95,9 @@ async function renderRouter(router: ReturnType<typeof createAppRouter>) {
   await act(async () => {
     root.render(
       <StrictMode>
-        <RouterProvider router={router} />
+        <AppProviders queryClient={router.options.context.queryClient}>
+          <RouterProvider router={router} />
+        </AppProviders>
       </StrictMode>,
     )
     await Promise.resolve()

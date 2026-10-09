@@ -1,6 +1,6 @@
 import type { QueryClient } from '@tanstack/react-query'
 
-import { createApiClient } from '../core/http/api-client'
+import { createApiClient, type RecoveryResult } from '../core/http/api-client'
 import { createAuthClient } from '../core/http/auth-client'
 import { createAuthApi, type LoginOutcome } from '../core/session/auth-api'
 import {
@@ -25,6 +25,8 @@ import {
   type SecurityRecoveryController,
 } from '../features/auth/security-recovery-controller'
 import type { LoginInput } from '../features/auth/login-schema'
+import { createProfileApi, type ProfileApi } from '../features/profile/profile-api'
+import { profileQueryKey } from '../features/profile/profile-query'
 import { createRemoteCacheController } from './query-client'
 
 export type SessionPath =
@@ -47,6 +49,7 @@ export interface AppRuntime {
   readonly coordinationMode: SessionCoordinationMode
   readonly login: (input: LoginInput) => Promise<LoginOutcome>
   readonly logoutController: LogoutController
+  readonly profileApi: ProfileApi
   readonly createSecurityRecoveryController: () => SecurityRecoveryController
   readonly navigation: SessionNavigation
   readonly close: () => void
@@ -98,6 +101,30 @@ export function createBrowserSessionRuntime(
   config: BrowserSessionRuntimeConfig,
 ): AppRuntime {
   const sessionStore = createSessionStore()
+  const unsubscribeProfileSeed = sessionStore.subscribe((state, previousState) => {
+    if (
+      state.status !== 'authenticated' ||
+      (previousState.status === 'authenticated' &&
+        previousState.identity === state.identity)
+    ) {
+      return
+    }
+    const queryKey = profileQueryKey(state.identity.userUuid)
+    if (config.queryClient.getQueryData(queryKey) !== undefined) return
+
+    config.queryClient.setQueryData(queryKey, {
+      kind: 'success',
+      data: {
+        uuid: state.identity.userUuid,
+        name: state.identity.name,
+        last_name: state.identity.lastName,
+        email: state.identity.email,
+        phone_number: state.identity.phoneNumber,
+        rol: state.identity.role,
+        is_active: state.identity.isActive,
+      },
+    })
+  })
   const remoteCache = createRemoteCacheController(config.queryClient)
   const navigation = createBrowserNavigation(config.browserWindow)
   const coordination = createSessionCoordination({
@@ -116,26 +143,30 @@ export function createBrowserSessionRuntime(
     getCsrfToken: () =>
       explicitCsrfToken ?? sessionStore.getState().getCsrfToken(),
   })
-  const profileApi = createApiClient({
+  let recoverProtectedRequest: () => Promise<RecoveryResult> = () =>
+    Promise.resolve('dead')
+  const apiClient = createApiClient({
     apiBaseUrl: config.apiBaseUrl,
     getAccessToken: () => sessionStore.getState().getAccessToken(),
-    sessionRecovery: { recoverRead: () => Promise.resolve('dead') },
+    sessionRecovery: { recoverRead: () => recoverProtectedRequest() },
   })
   const authApi = createAuthApi({
     authClient,
-    apiClient: profileApi,
+    apiClient,
     sessionStore,
     criticalOperations: { run: coordination.runCritical },
     sessionSignals,
   })
   const coordinator = createInitialSessionCoordinator({
     authApi,
-    profileApi,
+    profileApi: apiClient,
     sessionStore,
     remoteCache,
     criticalOperations: { run: coordination.runCritical },
     navigate: navigation.replace,
   })
+  recoverProtectedRequest = coordinator.recoverRead
+  const profileApi = createProfileApi({ apiClient })
   if (coordination.channelFactory !== undefined) {
     crossTab = createCrossTabSession({
       channelFactory: coordination.channelFactory,
@@ -161,6 +192,7 @@ export function createBrowserSessionRuntime(
     coordinationMode: coordination.mode,
     login: authApi.login,
     logoutController,
+    profileApi,
     createSecurityRecoveryController() {
       return createSecurityRecoveryController({
         authApi,
@@ -200,6 +232,7 @@ export function createBrowserSessionRuntime(
     },
     navigation,
     close() {
+      unsubscribeProfileSeed()
       crossTab?.close()
     },
   }

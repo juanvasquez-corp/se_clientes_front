@@ -16,6 +16,8 @@ import type { LogoutController } from '../../features/auth/logout-controller'
 import { isUsersContext } from '../../app/router/navigation-policy'
 import { createAppRouter } from '../../app/router/router'
 import type { AppRouterContext } from '../../app/router/router-context'
+import { AppProviders } from '../../app/providers'
+import { createProfileApiStub } from '../../test/profile-api-stub'
 
 const roots: Root[] = []
 const USER_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
@@ -51,6 +53,7 @@ function createShellRouter(role: UserRole, initialEntry: string) {
       store,
       login: () => Promise.resolve({ kind: 'technical' }),
       logoutController: { logout },
+      profileApi: createProfileApiStub(),
       createSecurityRecoveryController: () => ({
         operation: 'refresh',
         restoreProtection: () => Promise.resolve({ kind: 'restored' }),
@@ -80,7 +83,9 @@ async function renderShell(role: UserRole, initialEntry: string) {
   await act(async () => {
     root.render(
       <StrictMode>
-        <RouterProvider router={router} />
+        <AppProviders queryClient={router.options.context.queryClient}>
+          <RouterProvider router={router} />
+        </AppProviders>
       </StrictMode>,
     )
     await router.load()

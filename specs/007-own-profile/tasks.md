@@ -16,7 +16,7 @@
   - Hecho cuando: doble submit, reset confirmado y toast pasan; `MEMORY.md` actualizado.
 - [x] **T7. Integrar errores y sesión sin replay.** RF-11
   - Hecho cuando: 401/409/422/red/503 conservan contexto según specs transversales; `MEMORY.md` actualizado.
-- [ ] **T8. Verificar perfiles integralmente.** RF-1–RF-11
+- [x] **T8. Verificar perfiles integralmente.** RF-1–RF-11
   - Hecho cuando: roles/backend/E2E/móvil/axe y puerta integral pasan; `MEMORY.md` actualizado.
 
 ## Matriz RF → tarea

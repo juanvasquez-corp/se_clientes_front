@@ -5,8 +5,10 @@ import { createRoot } from 'react-dom/client'
 
 import { createAppRouter } from '../../app/router/router'
 import type { AppRouterContext } from '../../app/router/router-context'
+import { AppProviders } from '../../app/providers'
 import { userRoleSchema } from '../../contracts/schemas/user'
 import { createSessionStore } from '../../core/session/session-store'
+import { createProfileApiStub } from '../profile-api-stub'
 import '../../styles/app.css'
 
 const rootElement = document.getElementById('fixture-root')
@@ -64,6 +66,7 @@ const context: AppRouterContext = {
     logoutController: {
       logout: () => Promise.resolve({ kind: 'unavailable' }),
     },
+    profileApi: createProfileApiStub(),
     createSecurityRecoveryController: () => ({
       operation: 'refresh',
       restoreProtection: () => Promise.resolve({ kind: 'restored' }),
@@ -91,6 +94,8 @@ const router = createAppRouter({
 
 createRoot(rootElement).render(
   <StrictMode>
-    <RouterProvider router={router} />
+    <AppProviders queryClient={context.queryClient}>
+      <RouterProvider router={router} />
+    </AppProviders>
   </StrictMode>,
 )

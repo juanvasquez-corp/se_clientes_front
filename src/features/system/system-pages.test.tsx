@@ -15,6 +15,8 @@ import {
 import type { SecurityRecoveryController } from '../auth/security-recovery-controller'
 import { createAppRouter } from '../../app/router/router'
 import type { AppRouterContext } from '../../app/router/router-context'
+import { AppProviders } from '../../app/providers'
+import { createProfileApiStub } from '../../test/profile-api-stub'
 
 const roots: Root[] = []
 const USER_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
@@ -64,6 +66,7 @@ function createSystemRouter({
       store,
       login: () => Promise.resolve({ kind: 'technical' }),
       logoutController: { logout: () => Promise.resolve({ kind: 'logged-out' }) },
+      profileApi: createProfileApiStub(),
       createSecurityRecoveryController,
       coordinator: {
         restoreInitial: () => Promise.resolve('unavailable'),
@@ -91,7 +94,9 @@ async function renderSystemRoute(
   await act(async () => {
     root.render(
       <StrictMode>
-        <RouterProvider router={fixture.router} />
+        <AppProviders queryClient={fixture.router.options.context.queryClient}>
+          <RouterProvider router={fixture.router} />
+        </AppProviders>
       </StrictMode>,
     )
     await fixture.router.load()

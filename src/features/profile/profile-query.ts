@@ -11,5 +11,6 @@ export function profileQueryOptions(profileApi: Pick<ProfileApi, 'get'>, account
     queryKey: profileQueryKey(accountUuid),
     queryFn: ({ signal }) => profileApi.get(signal),
     retry: false,
+    staleTime: 30_000,
   })
 }

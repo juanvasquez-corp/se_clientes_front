@@ -15,6 +15,8 @@ import {
 import type { LogoutController } from '../../features/auth/logout-controller'
 import { createAppRouter } from '../../app/router/router'
 import type { AppRouterContext } from '../../app/router/router-context'
+import { AppProviders } from '../../app/providers'
+import { createProfileApiStub } from '../../test/profile-api-stub'
 
 const roots: Root[] = []
 const USER_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
@@ -49,6 +51,7 @@ function createMobileRouter(role: UserRole, initialEntry: string) {
       store,
       login: () => Promise.resolve({ kind: 'technical' }),
       logoutController: { logout },
+      profileApi: createProfileApiStub(),
       createSecurityRecoveryController: () => ({
         operation: 'refresh',
         restoreProtection: () => Promise.resolve({ kind: 'restored' }),
@@ -83,7 +86,9 @@ async function renderMobile(role: UserRole, initialEntry: string) {
   await act(async () => {
     root.render(
       <StrictMode>
-        <RouterProvider router={fixture.router} />
+        <AppProviders queryClient={fixture.router.options.context.queryClient}>
+          <RouterProvider router={fixture.router} />
+        </AppProviders>
       </StrictMode>,
     )
     await fixture.router.load()

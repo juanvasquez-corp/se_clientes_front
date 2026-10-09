@@ -132,7 +132,7 @@ test.describe('real backend login', () => {
         master: 'Master',
         visualizer: 'Visualizador',
       }[credential.role]
-      await expect(page.getByText(roleLabel, { exact: true })).toBeVisible()
+      await expect(page.getByText(roleLabel, { exact: true }).first()).toBeVisible()
       await expectHttpOnlyRefresh(context, page)
       await expectStorageEmpty(page)
       expect(failures).toEqual([])

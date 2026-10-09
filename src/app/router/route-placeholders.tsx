@@ -20,16 +20,6 @@ export function RouterPendingState() {
   )
 }
 
-export function ProfileRoutePlaceholder() {
-  return (
-    <PrivateShell>
-      <PageTransition>
-        <section aria-label="Perfil pendiente" />
-      </PageTransition>
-    </PrivateShell>
-  )
-}
-
 export function UsersRoutePlaceholder() {
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   return (
@@ -45,7 +35,7 @@ export function UsersRoutePlaceholder() {
   )
 }
 
-function PrivateShell({ children }: { readonly children: ReactNode }) {
+export function PrivateShell({ children }: { readonly children: ReactNode }) {
   const router = useRouter()
   const pathname = useRouterState({ select: (state) => state.location.pathname })
   const identity = useStore(router.options.context.session.store, (state) =>

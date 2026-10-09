@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import type { AppRuntime } from './session-runtime'
 import { createSessionStore } from '../core/session/session-store'
+import { createProfileApiStub } from '../test/profile-api-stub'
 import { createAppRouter } from './router/router'
 import type { AppRouterContext } from './router/router-context'
 import { App } from './app'
@@ -31,6 +32,7 @@ function createFixture(initialEntry: string) {
     logoutController: {
       logout: vi.fn(() => Promise.resolve({ kind: 'unavailable' as const })),
     },
+    profileApi: createProfileApiStub(),
     createSecurityRecoveryController: vi.fn(() => ({
       operation: 'refresh' as const,
       restoreProtection: () => Promise.resolve({ kind: 'blocked' as const }),
@@ -49,6 +51,7 @@ function createFixture(initialEntry: string) {
       store: sessionStore,
       login: runtime.login,
       logoutController: runtime.logoutController,
+      profileApi: runtime.profileApi,
       createSecurityRecoveryController: runtime.createSecurityRecoveryController,
       coordinator: runtime.coordinator,
     },

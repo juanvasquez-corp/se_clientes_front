@@ -4,6 +4,7 @@ import {
 } from '@tanstack/react-router'
 
 import { userUuidSchema } from '../../contracts/schemas/user'
+import { ProfileRoute } from '../../features/profile/profile-page'
 import {
   controlledStateRouteGuard,
   loginRouteGuard,
@@ -13,7 +14,6 @@ import {
 } from './guards'
 import {
   NewUserRoutePlaceholder,
-  ProfileRoutePlaceholder,
   RootOutlet,
   UserDetailRoutePlaceholder,
   UserEditRoutePlaceholder,
@@ -54,7 +54,7 @@ const profileRoute = createRoute({
   path: 'profile',
   beforeLoad: ({ context, location }) =>
     privateRouteGuard({ context, pathname: location.pathname }),
-  component: ProfileRoutePlaceholder,
+  component: ProfileRoute,
 })
 
 const usersRoute = createRoute({

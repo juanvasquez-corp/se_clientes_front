@@ -11,8 +11,10 @@ import {
   type SessionIdentity,
   type SessionStore,
 } from '../../core/session/session-store'
+import { createProfileApiStub } from '../../test/profile-api-stub'
 import { createAppRouter } from './router'
 import type { AppRouterContext } from './router-context'
+import { AppProviders } from '../providers'
 
 const roots: Root[] = []
 const USER_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
@@ -67,6 +69,7 @@ function createGuardTestRouter({
       store,
       login: () => Promise.resolve({ kind: 'technical' }),
       logoutController: { logout: () => Promise.resolve({ kind: 'logged-out' }) },
+      profileApi: createProfileApiStub(),
       createSecurityRecoveryController: () => ({
         operation: 'refresh',
         restoreProtection: () => Promise.resolve({ kind: 'restored' }),
@@ -128,7 +131,9 @@ describe('private route guards', () => {
     act(() => {
       root.render(
         <StrictMode>
-          <RouterProvider router={router} />
+          <AppProviders queryClient={router.options.context.queryClient}>
+            <RouterProvider router={router} />
+          </AppProviders>
         </StrictMode>,
       )
     })

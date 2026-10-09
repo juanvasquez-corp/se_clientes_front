@@ -3,6 +3,7 @@ import { createMemoryHistory } from '@tanstack/react-router'
 import { describe, expect, expectTypeOf, it } from 'vitest'
 
 import { createSessionStore } from '../../core/session/session-store'
+import { createProfileApiStub } from '../../test/profile-api-stub'
 import { createAppRouter } from './router'
 import type { AppRouterContext } from './router-context'
 
@@ -41,6 +42,7 @@ function createContext(): AppRouterContext {
       store,
       login: () => Promise.resolve({ kind: 'technical' }),
       logoutController: { logout: () => Promise.resolve({ kind: 'logged-out' }) },
+      profileApi: createProfileApiStub(),
       createSecurityRecoveryController: () => ({
         operation: 'refresh',
         restoreProtection: () => Promise.resolve({ kind: 'restored' }),
