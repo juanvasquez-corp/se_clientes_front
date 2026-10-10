@@ -1,7 +1,8 @@
 import { createRouter, type RouterHistory } from '@tanstack/react-router'
 
 import { routeTree } from './route-tree'
-import { RouterPendingState } from './route-placeholders'
+import { RouterErrorState } from './router-error-state'
+import { RouterPendingState } from './router-pending-state'
 import type { AppRouterContext } from './router-context'
 
 export interface CreateAppRouterOptions {
@@ -13,6 +14,7 @@ export function createAppRouter({ context, history }: CreateAppRouterOptions) {
   return createRouter({
     routeTree,
     context,
+    defaultErrorComponent: RouterErrorState,
     defaultPendingComponent: RouterPendingState,
     defaultPendingMs: 0,
     defaultPendingMinMs: 0,

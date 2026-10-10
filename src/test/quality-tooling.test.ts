@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import packageManifest from '../../package.json'
 
 const expectedScripts = {
-  build: 'tsc -b && vite build',
+  build: 'tsc -b && vite build && node scripts/check-build-budget.mjs dist',
   dev: 'vite',
   lint: 'eslint . --max-warnings 0',
   'openapi:generate': 'node scripts/generate-openapi.mjs',

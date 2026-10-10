@@ -14,6 +14,7 @@ import {
 } from '../../core/session/session-store'
 import type { SecurityRecoveryController } from '../auth/security-recovery-controller'
 import { createAppRouter } from '../../app/router/router'
+import '../../app/router/system-routes'
 import type { AppRouterContext } from '../../app/router/router-context'
 import { AppProviders } from '../../app/providers'
 import { createProfileApiStub } from '../../test/profile-api-stub'
@@ -91,7 +92,8 @@ async function renderSystemRoute(
   document.body.append(container)
   const root = createRoot(container)
   roots.push(root)
-  await act(async () => {
+  await fixture.router.load()
+  act(() => {
     root.render(
       <StrictMode>
         <AppProviders queryClient={fixture.router.options.context.queryClient}>
@@ -99,7 +101,6 @@ async function renderSystemRoute(
         </AppProviders>
       </StrictMode>,
     )
-    await fixture.router.load()
   })
   return { container, ...fixture }
 }

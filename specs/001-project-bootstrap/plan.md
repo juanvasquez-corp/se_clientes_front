@@ -1,7 +1,7 @@
 # Plan de implementación — Spec 001: Inicialización del proyecto y control de versiones
 
 **Estado de la spec:** aprobada  
-**Fecha:** 2026-10-05  
+**Fecha:** 2026-10-09
 **Referencias:** `spec.md`, `AGENTS.md`, `docs/constitution.md`, `docs/primeros_pasos/front_end.md`
 
 ## Resumen técnico
@@ -10,7 +10,7 @@ Git y las exclusiones locales ya fueron implementados en T1, sin commits. T1 rev
 
 T2 quedó completada históricamente con React/DOM canary y un smoke verde bajo el requisito anterior. T3 alcanzará la nueva conformidad: primero hará fallar una prueba de política frente al manifiesto canary; después migrará ambos paquetes a React/DOM 19.3.0 estables, exactamente pareados y fijados, regenerará el lockfile con npm estándar e instalará el stack compatible sin overrides ni bypass. También verificará que la release estable exporta `ViewTransition` antes de usarla.
 
-Después se completa Vite 8 + TypeScript estricto con Tailwind CSS v4/CSS3, calidad, contratos y pruebas. `.env` será local y `.env.example` versionable. Los seis recursos ya excluidos mediante `.git/info/exclude` nunca se añadirán a `.gitignore`.
+T1–T9 ya completaron Vite 8 + TypeScript estricto, Tailwind CSS v4/CSS3, calidad, contratos y pruebas. El build actual emite un único `.js` de 582875 bytes, por encima de RNF-7. T10 será una corrección transversal: primero convierte ese build en una prueba roja mediante un verificador de bytes; después introduce separación significativa por rutas/features en el árbol code-based de TanStack Router, sin cambiar rutas, guards, accesibilidad ni View Transitions. No se elevará ni desactivará el warning y no se usarán métricas comprimidas.
 
 ## Archivos por crear o modificar
 
@@ -28,6 +28,11 @@ Después se completa Vite 8 + TypeScript estricto con Tailwind CSS v4/CSS3, cali
 | `.git/info/exclude` | Completado en T1; solo verificar | Seis exclusiones locales ya presentes | RF-7, RF-8 |
 | `public/assets/*`, `src/styles/app.css` | Crear/copiar | Assets Aliar sin alteración e import inicial de Tailwind/tokens | RF-6 |
 | `src/contracts/generated/` | Generar | Tipos OpenAPI de compilación; no sustituye Zod | RF-1, RF-3 |
+| `scripts/check-build-budget.mjs` | Crear en T10 | Enumerar recursivamente `dist/**/*.js`, medir bytes y fallar si alguno excede 512000 | RNF-7 |
+| `src/test/build-budget-policy.test.ts` | Crear en T10 | Probar límite inclusivo, exceso, múltiples chunks y exclusión de `.map`/no-JS | RNF-7 |
+| `package.json` | Modificar en T10 | Encadenar el verificador al build sin nueva dependencia | RF-3, RF-9, RNF-7 |
+| `src/app/router/route-tree.tsx` | Modificar en T10 | Sustituir imports estáticos de páginas por límites lazy de rutas/features | RNF-7; RF de Spec 006 sin cambios |
+| `vite.config.ts` | Revisar en T10 | Mantener el límite/warning; solo admitir chunks vendor estables si la separación por rutas no basta | RNF-7 |
 
 ## Arquitectura, componentes y contratos
 
@@ -35,6 +40,7 @@ Después se completa Vite 8 + TypeScript estricto con Tailwind CSS v4/CSS3, cali
 - Dependencias de producción: React/React DOM 19.3.0 estables, exactamente pareados y fijados, Axios, TanStack Query/Router, Zustand, Zod, React Hook Form y resolvers.
 - Dependencias de desarrollo: Vite y plugin React, TypeScript, Tailwind v4 y plugin Vite, OpenAPI TypeScript, ESLint/TypeScript ESLint, Vitest, jsdom, Testing Library, MSW, Playwright y axe-core.
 - Contrato público inicial: `PublicEnv = { apiBaseUrl: string }`; ninguna variable `VITE_` puede contener secretos.
+- Contrato de build: todos los `.js` bajo `dist/` se miden por `stat.size` después de minificar; límite inclusivo 512000 bytes por archivo.
 
 ## Funciones puras
 
@@ -42,6 +48,8 @@ Después se completa Vite 8 + TypeScript estricto con Tailwind CSS v4/CSS3, cali
 |---|---|---|---|
 | `parsePublicEnv` | `Record<string, unknown>` | `PublicEnv` o error sanitizado | RF-4, RF-5 |
 | `isAllowedApiBaseUrl` | texto | booleano para URL relativa o HTTP(S) válida | RF-4 |
+| `collectJavaScriptFiles` | raíz de build | rutas `.js` recursivas y ordenadas | RNF-7 |
+| `evaluateBundleBudget` | `{path, bytes}[]`, máximo | resultado y lista de excedidos | RNF-7 |
 
 No hay lógica temporal; no corresponde parámetro `hoy` en esta spec.
 
@@ -56,7 +64,10 @@ No hay lógica temporal; no corresponde parámetro `hoy` en esta spec.
 → T5–T8: env, assets, MSW, E2E/axe/OpenAPI; test verde en cada cierre
 → copiar assets sin modificarlos
 → validar configuración pública al arrancar
-→ T9: puerta integral, preview y navegador
+→ [T9 completada] puerta integral, preview y navegador
+→ T10 rojo: build actual + checker falla con 582875 > 512000
+→ límites lazy de rutas/features; medir nuevamente todos los .js
+→ T10 verde: cada chunk ≤512000 + puerta/E2E/Chrome
 ```
 
 ## Decisiones técnicas
@@ -69,6 +80,10 @@ No hay lógica temporal; no corresponde parámetro `hoy` en esta spec.
 | View Transitions | Usar solo el export estable `ViewTransition` de la release fijada | Import canary/experimental o polyfill oculto | RF-11 |
 | Configuración | Zod `safeParse` al inicio | Leer `import.meta.env` sin validar | RF-4, RNF-2 |
 | Tests HTTP | MSW a nivel de red | Mock directo de Axios | RF-1, RNF-4 |
+| Presupuesto | Checker propio con bytes de `dist/**/*.js`, integrado al build | Confiar solo en warning visual, gzip/Brotli o total de assets | RNF-7 |
+| División inicial | `lazyRouteComponent`/imports dinámicos para login, profile y estados de sistema; futuros users siguen el mismo límite | Fragmentación arbitraria o dividir funciones pequeñas sin frontera de carga | RNF-7 |
+| Vendors | No crear `manualChunks` inicialmente; si la medición posterior aún falla, agrupar solo familias estables React/TanStack documentadas | Un único vendor gigante o nombres basados en paths frágiles | RNF-7 |
+| Warning Vite | Mantener 500 KiB; el checker es la puerta exacta en bytes | Subir `chunkSizeWarningLimit` o ocultar warning | RNF-7 |
 
 ## Estrategia de pruebas y verificación
 
@@ -78,6 +93,8 @@ No hay lógica temporal; no corresponde parámetro `hoy` en esta spec.
 - Verificaciones de proceso: scripts individuales, artefactos, lockfile y estado Git (`git status`, `git check-ignore -v`).
 - Puerta: `npm run typecheck && npm run lint && npm run test && npm run build`.
 - Manual: `npm run dev` en `http://localhost:5173`, `npm run preview`, consola limpia y comprobación de assets con Chrome DevTools.
+- T10 ejecuta primero `npm run build` con el checker y conserva evidencia roja del archivo de 582875 bytes; después exige build verde y reporte de todos los chunks.
+- Regresión T10: `npm run typecheck && npm run lint && npm run test && npm run build`, todos los E2E offline y reales de Specs 001–007, Chrome desktop/móvil, consola limpia, navegación/guards/foco/ViewTransition sin regresión.
 
 ### Evidencia de test verde por tarea pendiente
 
@@ -91,6 +108,7 @@ No hay lógica temporal; no corresponde parámetro `hoy` en esta spec.
 | T7 | Suite previa + primera integración MSW |
 | T8 | Suite unitaria completa; E2E/axe/OpenAPI se verifican además por sus scripts |
 | T9 | Suite completa dentro de la puerta integral |
+| T10 | Test unitario del checker + build budget ≤512000 por `.js` + regresión integral |
 
 ## Trazabilidad
 
@@ -108,16 +126,20 @@ No hay lógica temporal; no corresponde parámetro `hoy` en esta spec.
 | RF-10 | manifiesto/lock/test de compatibilidad | versiones estables iguales, peers satisfechos, sin bypass |
 | RF-11 | export estable y page transition posterior | import desde React estable y navegación funcional |
 | RNF-6 | npm estándar y lockfile | instalación sin ERESOLVE/peer warnings de React |
+| RNF-7 | checker de build + límites lazy de rutas | rojo 582875; verde enumerando cada `.js` ≤512000 |
 
 ## Secuencia, dependencias y riesgos
 
-1. T1 ya completada: Git/exclusiones. 2. T2 ya completada históricamente: runner canary verde. 3. T3 migra a estable y completa aplicación/stack. 4. T4 calidad/scripts. 5. T5–T8 capacidades restantes. 6. T9 puerta final.
+1. T1–T9 permanecen como historia completada. 2. T10 añade el presupuesto rojo, aplica separación de rutas/features, verifica cada chunk y ejecuta regresión integral.
 - No depende de otra spec; habilita todas las demás.
 - No se planifica `git init` ni la configuración inicial de `.git/info/exclude` como trabajo pendiente.
 - Riesgo resuelto en requisitos: la canary existente es incompatible con peers estables. T3 la reemplaza antes de instalar TanStack y prohíbe cualquier bypass.
 - Riesgo: divergencia entre documentación y paquete. Mitigación: comprobar en T3 el export real de `ViewTransition` desde React estable y mantener navegación funcional sin API experimental.
 - Riesgo: OpenAPI requiere backend disponible. El script fallará de forma explícita; no se modifica backend.
 - Riesgo corregido: tareas sin runner no podían demostrar verde. Mitigación: T2 instala el runner antes de cualquier otro cambio pendiente.
+- Riesgo: una frontera lazy puede alterar pending/foco/transiciones. Mitigación: reutilizar `defaultPendingComponent`, mantener guards en el árbol eager y repetir E2E/Chrome.
+- Riesgo: un futuro chunk dinámico puede superar el umbral. Mitigación: el checker recorre todos los `.js`, no solo el entry actual.
+- Riesgo: agrupar vendors puede crear otro chunk >512000. Mitigación: route splitting primero y vendor groups solo con evidencia de build.
 - No se ejecutan commits hasta aprobación futura.
 
 ## Pendientes de aclaración

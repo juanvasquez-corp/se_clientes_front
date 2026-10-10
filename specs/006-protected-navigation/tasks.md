@@ -2,6 +2,8 @@
 
 > Cada tarea futura dura 20–30 minutos, inicia con test rojo, termina verde y actualiza `MEMORY.md`.
 
+> T1–T8 conservan su cierre histórico. La corrección transversal de carga por rutas y presupuesto no reabre estas tareas: se implementará y validará en Spec 001/T10 con regresión completa de esta spec.
+
 - [x] **T1. Crear helpers puros de rol y ruta.** RF-2, RF-5–RF-9
   - Hecho cuando: matriz de roles/rutas/menús pasa; `MEMORY.md` actualizado.
 - [x] **T2. Declarar route tree exacto y contexto.** RF-3, RF-4

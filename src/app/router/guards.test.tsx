@@ -147,7 +147,7 @@ describe('private route guards', () => {
     authenticate(store, 'superadmin')
     await act(async () => {
       deferred.resolve('authenticated')
-      await deferred.promise
+      await router.load()
     })
 
     expect(await screen.findByLabelText('Usuarios pendiente')).toBeDefined()

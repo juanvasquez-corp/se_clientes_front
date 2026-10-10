@@ -66,6 +66,10 @@ a {
   color: var(--aliar-blue-600);
 }
 
+.router-recovery-link {
+  color: var(--aliar-white);
+}
+
 :disabled {
   cursor: not-allowed;
   opacity: 0.65;

@@ -20,6 +20,8 @@
   - Hecho cuando: existen scripts `test:e2e` y `openapi:generate`, smoke E2E y axe se pueden ejecutar y los contratos se generan sin sustituir Zod; `npm run test` queda verde y `MEMORY.md` actualizado.
 - [x] **T9. Ejecutar puerta integral de bootstrap.** RF-1–RF-9
   - Hecho cuando: `npm run typecheck && npm run lint && npm run test && npm run build` queda verde, preview sirve el artefacto, navegador/consola/móvil se revisan y `MEMORY.md` queda actualizado.
+- [x] **T10. Aplicar y verificar el presupuesto de chunks JavaScript.** RNF-7
+  - Hecho cuando: primero un checker de `dist/**/*.js` y su prueba registran rojo con el chunk actual de 582875 bytes; después límites lazy significativos de rutas/features —y solo si la medición lo exige, chunks vendor estables— dejan cada `.js` minificado y sin compresión en ≤512000 bytes sin elevar/desactivar el warning ni añadir dependencias; `npm run typecheck && npm run lint && npm run test && npm run build`, todos los E2E offline/reales y Chrome desktop/móvil quedan verdes sin regresión funcional, accesible o de View Transitions; `MEMORY.md` actualizado.
 
 ## Matriz RF → tarea
 
@@ -33,3 +35,4 @@
 | RF-7, RF-8 | T1 |
 | RF-9 | T4, T9 |
 | RF-10, RF-11 | T3 |
+| RNF-7 | T10 |

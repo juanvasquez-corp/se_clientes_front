@@ -2,14 +2,14 @@
 
 > Especificación del punto de partida reproducible del frontend. Describe qué capacidades debe ofrecer la base del proyecto; las tecnologías, dependencias, comandos concretos y archivos pertenecen al plan.
 
-**Estado:** aprobada  
-**Versión:** 1.3.0  
-**Fecha:** 2026-10-05  
+**Estado:** implementada
+**Versión:** 1.4.0
+**Fecha:** 2026-10-09
 **Proyecto:** Gestión de usuarios — Frontend
 
 ## Contexto y objetivo
 
-El frontend necesita una base reproducible y validable para evolucionar mediante SDD, sin exponer configuración sensible ni incorporar al control de versiones recursos locales. Durante el bootstrap se comprobó que una prerelease canary de React no satisface las peer dependencies estables del stack aprobado; por decisión explícita del usuario, la base debe usar React estable sin overrides ocultos.
+El frontend necesita una base reproducible y validable para evolucionar mediante SDD, sin exponer configuración sensible ni incorporar al control de versiones recursos locales. Durante el bootstrap se comprobó que una prerelease canary de React no satisface las peer dependencies estables del stack aprobado; por decisión explícita del usuario, la base debe usar React estable sin overrides ocultos. El build implementado emite un único chunk JavaScript de 582875 bytes (aproximadamente 569.21 KiB), por lo que se incorpora un presupuesto transversal antes de ampliar las funcionalidades.
 
 ## Usuarios / actores
 
@@ -29,6 +29,8 @@ El frontend necesita una base reproducible y validable para evolucionar mediante
 - **Recursos excluidos:** `.opencode`, `docs/desing/guia_diseno_front.md`, `docs/primeros_pasos/`, `docs/constitution.md`, `AGENTS.md` y `MEMORY.md`.
 - **React estable:** release publicada en el canal estable, sin identificador de prerelease; `react` y `react-dom` usan la misma versión fijada y compatible con las peer dependencies declaradas del stack.
 - **View Transition estable:** API `<ViewTransition>` publicada como estable por React. El anuncio oficial de React 19.3 la declara estable; la versión exacta se resolverá en el plan y deberá comprobarse contra los paquetes instalados.
+- **Chunk JavaScript:** cada archivo con extensión `.js` emitido por la construcción de producción, medido después de minificar y antes de aplicar gzip, Brotli u otra compresión de transporte.
+- **500 KiB:** 500 × 1024 bytes, equivalentes a 512000 bytes.
 
 ## Requisitos funcionales
 
@@ -52,6 +54,7 @@ El frontend necesita una base reproducible y validable para evolucionar mediante
 - **RNF-4 — Calidad:** Las comprobaciones obligatorias de tipos, análisis estático, pruebas y construcción pueden ejecutarse sin intervención manual.
 - **RNF-5 — Idioma:** Código e identificadores futuros usarán inglés descriptivo; documentación y textos de interfaz usarán español latino.
 - **RNF-6 — Compatibilidad de dependencias:** La instalación estándar de npm resuelve el árbol declarado sin advertencias de peer dependency causadas por React ni mecanismos de bypass.
+- **RNF-7 — Presupuesto de chunks JavaScript:** CUANDO se genera una construcción de producción, EL SISTEMA garantiza que cada archivo `.js` emitido, minificado y sin compresión mide como máximo 500 KiB (512000 bytes).
 
 ## Verificación por requisito
 
@@ -68,6 +71,7 @@ El frontend necesita una base reproducible y validable para evolucionar mediante
 | RF-9 | Construir, servir el artefacto y provocar una comprobación fallida para verificar salida no exitosa e identificación del fallo. |
 | RF-10 | Inspeccionar manifiesto/lockfile y ejecutar instalación npm estándar: React/DOM estables, misma versión, peers satisfechos y ausencia de bypass. |
 | RF-11 | Comprobar la documentación oficial y el export real de la release estable; probar navegación con la capacidad estable o, si no existe, sin import experimental. |
+| RNF-7 | Generar el build de producción, enumerar todos los archivos `.js` emitidos y comprobar individualmente que su tamaño minificado sin compresión es ≤512000 bytes. |
 
 ## Casos límite y errores
 
@@ -79,6 +83,11 @@ El frontend necesita una base reproducible y validable para evolucionar mediante
 - **Canary ya instalada durante T2:** se migra a la release estable compatible y se actualiza el lockfile en la planificación posterior; no se conserva simultáneamente ninguna prerelease.
 - **Peer dependency incompatible:** npm no puede resolver el árbol estándar → se detiene la instalación; no se habilitan `force`, `legacy-peer-deps` ni overrides.
 - **Release estable sin `<ViewTransition>` compatible:** la navegación permanece funcional y la capacidad se pospone; no se sustituye por una API experimental.
+- **Múltiples chunks:** todos los archivos `.js` emitidos deben cumplir individualmente el límite; aprobar el principal no compensa otro chunk excedido.
+- **Chunk dinámico:** un archivo `.js` cargado bajo demanda está sujeto al mismo límite que el chunk de entrada.
+- **Source maps:** los archivos `.map` y su tamaño no forman parte del cálculo de RNF-7.
+- **CSS y otros assets:** archivos CSS, imágenes, fuentes, SVG y demás recursos no `.js` quedan fuera de RNF-7 y no se suman al presupuesto JavaScript.
+- **Artefactos comprimidos:** tamaños gzip o Brotli son informativos y no sustituyen la medición minificada sin compresión.
 
 ## Fuera de alcance
 
@@ -98,6 +107,7 @@ El frontend necesita una base reproducible y validable para evolucionar mediante
 - [ ] La identidad visual base está disponible para las specs posteriores.
 - [ ] React y React DOM están pareados en una release estable compatible y npm resuelve las peer dependencies sin bypass.
 - [ ] `<ViewTransition>` se usa únicamente si el paquete estable seleccionado lo publica como API estable; en caso contrario, la navegación verificada no depende de ella.
+- [ ] La construcción de producción no emite ningún archivo `.js` minificado y sin compresión mayor de 500 KiB (512000 bytes).
 
 ## Dudas abiertas
 

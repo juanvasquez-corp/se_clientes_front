@@ -1,10 +1,11 @@
 import {
   createRootRouteWithContext,
   createRoute,
+  lazyRouteComponent,
+  Outlet,
 } from '@tanstack/react-router'
 
 import { userUuidSchema } from '../../contracts/schemas/user'
-import { ProfileRoute } from '../../features/profile/profile-page'
 import {
   controlledStateRouteGuard,
   loginRouteGuard,
@@ -12,16 +13,37 @@ import {
   rootRouteGuard,
   unavailableRouteGuard,
 } from './guards'
-import {
-  NewUserRoutePlaceholder,
-  RootOutlet,
-  UserDetailRoutePlaceholder,
-  UserEditRoutePlaceholder,
-  UsersRoutePlaceholder,
-} from './route-placeholders'
-import { LoginRoute } from './login-route'
 import type { AppRouterContext } from './router-context'
-import { ForbiddenRoute, UnavailableRoute } from './system-routes'
+
+const LoginRoute = lazyRouteComponent(() => import('./login-route'), 'LoginRoute')
+const ProfileRoute = lazyRouteComponent(
+  () => import('../../features/profile/profile-page'),
+  'ProfileRoute',
+)
+const UsersRoutePlaceholder = lazyRouteComponent(
+  () => import('./route-placeholders'),
+  'UsersRoutePlaceholder',
+)
+const NewUserRoutePlaceholder = lazyRouteComponent(
+  () => import('./route-placeholders'),
+  'NewUserRoutePlaceholder',
+)
+const UserDetailRoutePlaceholder = lazyRouteComponent(
+  () => import('./route-placeholders'),
+  'UserDetailRoutePlaceholder',
+)
+const UserEditRoutePlaceholder = lazyRouteComponent(
+  () => import('./route-placeholders'),
+  'UserEditRoutePlaceholder',
+)
+const ForbiddenRoute = lazyRouteComponent(
+  () => import('./system-routes'),
+  'ForbiddenRoute',
+)
+const UnavailableRoute = lazyRouteComponent(
+  () => import('./system-routes'),
+  'UnavailableRoute',
+)
 
 export class InvalidUserUuidParamError extends Error {
   constructor() {
@@ -39,7 +61,7 @@ function parseUserUuid(rawUserUuid: string): string {
 const rootRoute = createRootRouteWithContext<AppRouterContext>()({
   beforeLoad: ({ context, location }) =>
     rootRouteGuard({ context, pathname: location.pathname }),
-  component: RootOutlet,
+  component: Outlet,
 })
 
 const loginRoute = createRoute({

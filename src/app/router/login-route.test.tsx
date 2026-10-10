@@ -15,6 +15,7 @@ import {
 } from '../../core/session/session-store'
 import type { LoginInput } from '../../features/auth/login-schema'
 import { createProfileApiStub } from '../../test/profile-api-stub'
+import './login-route'
 import { createAppRouter } from './router'
 import type { AppRouterContext } from './router-context'
 import { AppProviders } from '../providers'
@@ -92,7 +93,8 @@ async function renderRouter(router: ReturnType<typeof createAppRouter>) {
   document.body.append(container)
   const root = createRoot(container)
   roots.push(root)
-  await act(async () => {
+  await router.load()
+  act(() => {
     root.render(
       <StrictMode>
         <AppProviders queryClient={router.options.context.queryClient}>
@@ -100,7 +102,6 @@ async function renderRouter(router: ReturnType<typeof createAppRouter>) {
         </AppProviders>
       </StrictMode>,
     )
-    await Promise.resolve()
   })
 }
 
