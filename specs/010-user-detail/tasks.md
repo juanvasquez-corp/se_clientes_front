@@ -4,7 +4,7 @@
 
 - [x] **T1. Validar UUID e implementar API/query de detalle.** RF-1, RF-7
   - Hecho cuando: UUID válido, inválido, 404 y AbortSignal pasan; `MEMORY.md` actualizado.
-- [ ] **T2. Renderizar tarjeta de datos públicos.** RF-2
+- [x] **T2. Renderizar tarjeta de datos públicos.** RF-2
   - Hecho cuando: seis campos/nulos pasan y datos prohibidos no existen; `MEMORY.md` actualizado.
 - [ ] **T3. Implementar contexto y breadcrumb responsive.** RF-3
   - Hecho cuando: volver/listado y variante móvil pasan; `MEMORY.md` actualizado.
