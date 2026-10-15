@@ -17,8 +17,12 @@ import { createAppRouter } from '../../app/router/router'
 import type { AppRouterContext } from '../../app/router/router-context'
 import { AppProviders } from '../../app/providers'
 import { createProfileApiStub } from '../../test/profile-api-stub'
+import { createUsersApiStub } from '../../test/users-api-stub'
 
 const roots: Root[] = []
+const routers: ReturnType<typeof createAppRouter>[] = []
+const lazyPaths = ['/users', '/users/new', '/users/$userUuid', '/profile', '/login'] as const
+const preloadedPaths: string[] = []
 const USER_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
 
 function identityFor(role: UserRole): SessionIdentity {
@@ -52,6 +56,7 @@ function createMobileRouter(role: UserRole, initialEntry: string) {
       login: () => Promise.resolve({ kind: 'technical' }),
       logoutController: { logout },
       profileApi: createProfileApiStub(),
+      usersApi: createUsersApiStub(),
       createSecurityRecoveryController: () => ({
         operation: 'refresh',
         restoreProtection: () => Promise.resolve({ kind: 'restored' }),
@@ -68,8 +73,34 @@ function createMobileRouter(role: UserRole, initialEntry: string) {
     context,
     history: createMemoryHistory({ initialEntries: [initialEntry] }),
   })
+  routers.push(router)
   return { logout, router, store }
 }
+
+function disposeRouters() {
+  for (const router of routers.splice(0)) {
+    router.history.destroy()
+    router.options.context.queryClient.clear()
+  }
+}
+
+async function preloadComponents() {
+  const { router } = createMobileRouter('superadmin', '/users')
+  try {
+    for (const path of lazyPaths) {
+      const component = router.routesById[path].options.component
+      if (component === undefined || typeof component.preload !== 'function') {
+        throw new Error(`Expected preloadable ${path} component.`)
+      }
+      await component.preload()
+      preloadedPaths.push(path)
+    }
+  } finally {
+    disposeRouters()
+  }
+}
+
+await preloadComponents()
 
 async function renderMobile(role: UserRole, initialEntry: string) {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
@@ -84,6 +115,7 @@ async function renderMobile(role: UserRole, initialEntry: string) {
   const root = createRoot(container)
   roots.push(root)
   await act(async () => {
+    await fixture.router.load()
     root.render(
       <StrictMode>
         <AppProviders queryClient={fixture.router.options.context.queryClient}>
@@ -91,28 +123,28 @@ async function renderMobile(role: UserRole, initialEntry: string) {
         </AppProviders>
       </StrictMode>,
     )
-    await fixture.router.load()
   })
   return { container, ...fixture }
 }
 
-afterEach(() => {
-  for (const root of roots.splice(0)) {
-    act(() => {
-      root.unmount()
-    })
-  }
+afterEach(async () => {
+  await act(async () => {
+    for (const root of roots.splice(0)) root.unmount()
+    await Promise.all(routers.map((router) => router.options.context.queryClient.cancelQueries()))
+  })
+  disposeRouters()
   vi.restoreAllMocks()
 })
 
 describe('mobile private navigation', () => {
   it('opens with accessible state, focuses active option, and Escape restores trigger', async () => {
+    expect(preloadedPaths).toEqual(lazyPaths)
     await renderMobile('superadmin', '/users/new')
     const user = userEvent.setup()
     const trigger = screen.getByRole('button', { name: 'Abrir menú' })
 
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
-    await user.click(trigger)
+    await act(async () => { await user.click(trigger) })
 
     expect(trigger.getAttribute('aria-expanded')).toBe('true')
     expect(trigger.getAttribute('aria-controls')).toBe('mobile-navigation-panel')
@@ -121,17 +153,17 @@ describe('mobile private navigation', () => {
       within(navigation).getByRole('link', { name: 'Usuarios' }),
     )
 
-    await user.keyboard('{Escape}')
+    await act(async () => { await user.keyboard('{Escape}') })
     expect(screen.queryByRole('navigation', { name: 'Navegación móvil' })).toBeNull()
     expect(trigger.getAttribute('aria-expanded')).toBe('false')
     expect(document.activeElement).toBe(trigger)
 
-    await user.click(trigger)
-    await user.click(
+    await act(async () => { await user.click(trigger) })
+    await act(async () => { await user.click(
       within(
         screen.getByRole('complementary', { name: 'Menú móvil' }),
       ).getByRole('button', { name: 'Cerrar menú' }),
-    )
+    ) })
     expect(screen.queryByRole('navigation', { name: 'Navegación móvil' })).toBeNull()
     expect(document.activeElement).toBe(trigger)
   })
@@ -141,7 +173,7 @@ describe('mobile private navigation', () => {
     async (role) => {
       await renderMobile(role, '/profile')
       const user = userEvent.setup()
-      await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
+      await act(async () => { await user.click(screen.getByRole('button', { name: 'Abrir menú' })) })
       const navigation = screen.getByRole('navigation', { name: 'Navegación móvil' })
 
       expect(within(navigation).queryByText('Usuarios')).toBeNull()
@@ -156,16 +188,18 @@ describe('mobile private navigation', () => {
     const { router } = await renderMobile('superadmin', '/users')
     const navigate = vi.spyOn(router, 'navigate')
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Abrir menú' })) })
 
-    await user.click(
+    await act(async () => { await user.click(
       within(
         screen.getByRole('navigation', { name: 'Navegación móvil' }),
       ).getByRole('link', { name: 'Mi perfil' }),
-    )
+    ) })
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/profile')
+      expect(router.state.status).toBe('idle')
+      expect(router.state.resolvedLocation?.pathname).toBe('/profile')
       expect(document.activeElement).toBe(screen.getByRole('main'))
     })
     expect(screen.queryByRole('navigation', { name: 'Navegación móvil' })).toBeNull()
@@ -175,14 +209,14 @@ describe('mobile private navigation', () => {
   it('opens the existing logout dialog without invoking logout prematurely', async () => {
     const { logout } = await renderMobile('superadmin', '/users')
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Abrir menú' })) })
     const mobileNavigation = screen.getByRole('navigation', {
       name: 'Navegación móvil',
     })
 
-    await user.click(
+    await act(async () => { await user.click(
       within(mobileNavigation).getByRole('button', { name: 'Cerrar sesión' }),
-    )
+    ) })
 
     expect(screen.getByRole('dialog', { name: 'Cerrar sesión' })).toBeDefined()
     expect(logout).not.toHaveBeenCalled()
@@ -191,11 +225,12 @@ describe('mobile private navigation', () => {
   it('unmounts an open menu safely when the session stops being authenticated', async () => {
     const { store } = await renderMobile('superadmin', '/users')
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Abrir menú' })) })
     expect(screen.getByRole('navigation', { name: 'Navegación móvil' })).toBeDefined()
 
-    act(() => {
+    await act(async () => {
       store.getState().markDead()
+      await Promise.resolve()
     })
 
     expect(screen.queryByRole('navigation', { name: 'Navegación móvil' })).toBeNull()
@@ -204,7 +239,7 @@ describe('mobile private navigation', () => {
   it('has no detectable axe violations while open', async () => {
     const { container } = await renderMobile('superadmin', `/users/${USER_UUID}`)
     const user = userEvent.setup()
-    await user.click(screen.getByRole('button', { name: 'Abrir menú' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Abrir menú' })) })
 
     const results = await axe.run(container, {
       rules: { 'color-contrast': { enabled: false } },

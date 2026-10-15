@@ -52,6 +52,21 @@ async function mockDeadSession(page: Page) {
   })
 }
 
+async function mockEmptyDirectory(page: Page) {
+  await page.route(`${endpoint('/users')}?*`, async (route) => {
+    if (await preflight(route)) return
+    await route.fulfill({
+      json: {
+        total_records: 0,
+        current_page: 1,
+        total_pages: 1,
+        page_size: 10,
+        data: [],
+      },
+    })
+  })
+}
+
 async function mockRestoredSession(page: Page, role: Role) {
   await page.route(endpoint('/auth/csrf'), async (route) => {
     if (await preflight(route)) return
@@ -65,6 +80,7 @@ async function mockRestoredSession(page: Page, role: Role) {
     if (await preflight(route)) return
     await route.fulfill({ json: profile(role) })
   })
+  if (role === 'superadmin') await mockEmptyDirectory(page)
 }
 
 async function mockLogin(page: Page, role: Role) {
@@ -77,6 +93,7 @@ async function mockLogin(page: Page, role: Role) {
     if (await preflight(route)) return
     await route.fulfill({ json: profile(role) })
   })
+  if (role === 'superadmin') await mockEmptyDirectory(page)
 }
 
 async function submitLogin(page: Page) {
@@ -207,12 +224,28 @@ for (const role of ['master', 'visualizer'] as const) {
   })
 }
 
-test('superadmin opens every users route with active Usuarios and exact placeholders', async ({
+test('superadmin opens real directory and keeps only child users routes as placeholders', async ({
   page,
 }) => {
   await mockRestoredSession(page, 'superadmin')
+  await page.route(`${endpoint('/users')}?*`, async (route) => {
+    if (await preflight(route)) return
+    await route.fulfill({
+      json: {
+        total_records: 0,
+        current_page: 1,
+        total_pages: 1,
+        page_size: 10,
+        data: [],
+      },
+    })
+  })
+  await page.goto('/users')
+  await expect(page).toHaveURL(/\/users$/u)
+  await expect(page.getByRole('heading', { name: 'Gestión de usuarios' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Usuarios pendiente' })).toHaveCount(0)
+
   for (const [path, region] of [
-    ['/users', 'Usuarios pendiente'],
     ['/users/new', 'Creación de usuario pendiente'],
     [`/users/${USER_UUID}`, 'Detalle de usuario pendiente'],
     [`/users/${USER_UUID}/edit`, 'Edición de usuario pendiente'],

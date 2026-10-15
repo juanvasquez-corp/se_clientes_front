@@ -12,7 +12,7 @@ import type { LoginInput } from './login-schema'
 const TODAY = new Date('2026-10-07T12:00:00.000Z')
 const roots = new Set<ReturnType<typeof createRoot>>()
 
-function renderRateLimitedForm(
+async function renderRateLimitedForm(
   retryAfter: string | null,
   now: () => Date = () => new Date(),
 ) {
@@ -24,16 +24,18 @@ function renderRateLimitedForm(
   roots.add(root)
   document.body.append(container)
 
-  act(() => {
+  await act(async () => {
     root.render(<LoginForm now={now} onSubmit={onSubmit} />)
+    await Promise.resolve()
   })
 
   return {
     container,
     onSubmit,
-    unmount() {
-      act(() => {
+    async unmount() {
+      await act(async () => {
         root.unmount()
+        await Promise.resolve()
       })
       roots.delete(root)
     },
@@ -57,19 +59,20 @@ function controls() {
 
 async function submitCredentials(user: ReturnType<typeof userEvent.setup>) {
   const fields = controls()
-  await user.type(fields.email, 'ana@example.com')
-  await user.type(fields.password, 'private password')
-  await user.click(fields.submit)
+  await act(async () => { await user.type(fields.email, 'ana@example.com') })
+  await act(async () => { await user.type(fields.password, 'private password') })
+  await act(async () => { await user.click(fields.submit) })
   await act(async () => {
     await Promise.resolve()
   })
   return fields
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
   roots.clear()
@@ -91,7 +94,7 @@ describe('LoginForm rate limiting', () => {
       vi.useFakeTimers()
       vi.setSystemTime(TODAY)
       const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-      const { onSubmit } = renderRateLimitedForm(retryAfter)
+      const { onSubmit } = await renderRateLimitedForm(retryAfter)
 
       const fields = await submitCredentials(user)
       const alert = screen.getByRole('alert')
@@ -115,8 +118,8 @@ describe('LoginForm rate limiting', () => {
       expect(fields.reveal.disabled).toBe(true)
       expect(fields.submit.disabled).toBe(true)
 
-      await user.click(fields.submit)
-      await user.keyboard('{Enter}')
+      await act(async () => { await user.click(fields.submit) })
+      await act(async () => { await user.keyboard('{Enter}') })
       expect(onSubmit).toHaveBeenCalledTimes(1)
 
       await act(async () => {
@@ -138,7 +141,7 @@ describe('LoginForm rate limiting', () => {
     vi.useFakeTimers()
     vi.setSystemTime(TODAY)
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    const { onSubmit } = renderRateLimitedForm('2147485')
+    const { onSubmit } = await renderRateLimitedForm('2147485')
 
     const { submit } = await submitCredentials(user)
     expect(submit.disabled).toBe(true)
@@ -168,15 +171,15 @@ describe('LoginForm rate limiting', () => {
     const storageClear = vi.spyOn(Storage.prototype, 'clear')
     const initialCookie = document.cookie
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
-    const first = renderRateLimitedForm('120')
+    const first = await renderRateLimitedForm('120')
 
     const { submit } = await submitCredentials(user)
     expect(submit.disabled).toBe(true)
     expect(vi.getTimerCount()).toBe(1)
-    first.unmount()
+    await first.unmount()
     expect(vi.getTimerCount()).toBe(0)
 
-    const second = renderRateLimitedForm('120')
+    const second = await renderRateLimitedForm('120')
     expect(controls().submit.disabled).toBe(false)
     expect(second.onSubmit).not.toHaveBeenCalled()
     expect(storageSetItem).not.toHaveBeenCalled()
@@ -187,7 +190,7 @@ describe('LoginForm rate limiting', () => {
 
   it('has no axe violations while the temporary lock is announced', async () => {
     const user = userEvent.setup()
-    const { container } = renderRateLimitedForm('60', () => TODAY)
+    const { container } = await renderRateLimitedForm('60', () => TODAY)
 
     await submitCredentials(user)
     const results = await axe.run(container, {

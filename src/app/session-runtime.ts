@@ -27,6 +27,7 @@ import {
 import type { LoginInput } from '../features/auth/login-schema'
 import { createProfileApi, type ProfileApi } from '../features/profile/profile-api'
 import { profileQueryKey } from '../features/profile/profile-query'
+import { createUsersApi, type UsersApi } from '../features/users/users-api'
 import { createRemoteCacheController } from './query-client'
 
 export type SessionPath =
@@ -50,6 +51,7 @@ export interface AppRuntime {
   readonly login: (input: LoginInput) => Promise<LoginOutcome>
   readonly logoutController: LogoutController
   readonly profileApi: ProfileApi
+  readonly usersApi: UsersApi
   readonly createSecurityRecoveryController: () => SecurityRecoveryController
   readonly navigation: SessionNavigation
   readonly close: () => void
@@ -167,6 +169,7 @@ export function createBrowserSessionRuntime(
   })
   recoverProtectedRequest = coordinator.recoverRead
   const profileApi = createProfileApi({ apiClient })
+  const usersApi = createUsersApi({ apiClient })
   if (coordination.channelFactory !== undefined) {
     crossTab = createCrossTabSession({
       channelFactory: coordination.channelFactory,
@@ -193,6 +196,7 @@ export function createBrowserSessionRuntime(
     login: authApi.login,
     logoutController,
     profileApi,
+    usersApi,
     createSecurityRecoveryController() {
       return createSecurityRecoveryController({
         authApi,

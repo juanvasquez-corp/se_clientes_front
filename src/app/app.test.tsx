@@ -8,11 +8,14 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { AppRuntime } from './session-runtime'
 import { createSessionStore } from '../core/session/session-store'
 import { createProfileApiStub } from '../test/profile-api-stub'
+import { createUsersApiStub } from '../test/users-api-stub'
 import { createAppRouter } from './router/router'
 import type { AppRouterContext } from './router/router-context'
 import { App } from './app'
 
 const roots: Root[] = []
+const routers: ReturnType<typeof createAppRouter>[] = []
+let loginPreloaded = false
 
 function createFixture(initialEntry: string) {
   const sessionStore = createSessionStore()
@@ -33,6 +36,7 @@ function createFixture(initialEntry: string) {
       logout: vi.fn(() => Promise.resolve({ kind: 'unavailable' as const })),
     },
     profileApi: createProfileApiStub(),
+    usersApi: createUsersApiStub(),
     createSecurityRecoveryController: vi.fn(() => ({
       operation: 'refresh' as const,
       restoreProtection: () => Promise.resolve({ kind: 'blocked' as const }),
@@ -52,6 +56,7 @@ function createFixture(initialEntry: string) {
       login: runtime.login,
       logoutController: runtime.logoutController,
       profileApi: runtime.profileApi,
+      usersApi: runtime.usersApi,
       createSecurityRecoveryController: runtime.createSecurityRecoveryController,
       coordinator: runtime.coordinator,
     },
@@ -60,37 +65,63 @@ function createFixture(initialEntry: string) {
     context,
     history: createMemoryHistory({ initialEntries: [initialEntry] }),
   })
+  routers.push(router)
   return { restoreInitial, router, runtime }
 }
 
-function renderApp(fixture: ReturnType<typeof createFixture>) {
+function disposeRouters() {
+  for (const router of routers.splice(0)) {
+    router.history.destroy()
+    router.options.context.queryClient.clear()
+  }
+}
+
+async function preloadLogin() {
+  const { router } = createFixture('/login')
+  try {
+    const component = router.routesById['/login'].options.component
+    if (component === undefined || typeof component.preload !== 'function') {
+      throw new Error('Expected preloadable /login component.')
+    }
+    await component.preload()
+    loginPreloaded = true
+  } finally {
+    disposeRouters()
+  }
+}
+
+await preloadLogin()
+
+async function renderApp(fixture: ReturnType<typeof createFixture>) {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
   roots.push(root)
-  act(() => {
+  await act(async () => {
     root.render(
       <StrictMode>
         <App router={fixture.router} runtime={fixture.runtime} />
       </StrictMode>,
     )
+    await fixture.router.load()
   })
 }
 
-afterEach(() => {
-  for (const root of roots.splice(0)) {
-    act(() => {
-      root.unmount()
-    })
-  }
+afterEach(async () => {
+  await act(async () => {
+    for (const root of roots.splice(0)) root.unmount()
+    await Promise.all(routers.map((router) => router.options.context.queryClient.cancelQueries()))
+  })
+  disposeRouters()
   vi.restoreAllMocks()
 })
 
 describe('application router composition', () => {
   it('mounts the real router and resolves root through one restoration', async () => {
+    expect(loginPreloaded).toBe(true)
     const fixture = createFixture('/')
-    renderApp(fixture)
+    await renderApp(fixture)
 
     await screen.findByRole('heading', { name: 'Inicia sesión' })
 
@@ -101,7 +132,7 @@ describe('application router composition', () => {
 
   it('routes an unknown dead-session path to login without a functional wildcard', async () => {
     const fixture = createFixture('/dashboard')
-    renderApp(fixture)
+    await renderApp(fixture)
 
     await screen.findByRole('heading', { name: 'Inicia sesión' })
 
@@ -112,15 +143,13 @@ describe('application router composition', () => {
   it('closes runtime once after the StrictMode app is finally unmounted', async () => {
     const fixture = createFixture('/login')
     fixture.runtime.sessionStore.getState().markDead()
-    renderApp(fixture)
+    await renderApp(fixture)
     await screen.findByRole('heading', { name: 'Inicia sesión' })
 
-    for (const root of roots.splice(0)) {
-      act(() => {
-        root.unmount()
-      })
-    }
-    await Promise.resolve()
+    await act(async () => {
+      for (const root of roots.splice(0)) root.unmount()
+      await Promise.resolve()
+    })
 
     expect(fixture.runtime.close).toHaveBeenCalledTimes(1)
   })

@@ -1,12 +1,12 @@
 import {
   expect,
   test,
-  type APIRequestContext,
   type BrowserContext,
   type Page,
 } from '@playwright/test'
 
 import { resolveE2EOrigins } from '../../src/test/e2e-origins'
+import { waitForE2EBackend } from '../../src/test/e2e-backend-readiness'
 
 const realLoginEnabled = process.env.RUN_REAL_LOGIN_E2E === '1'
 const { apiBaseUrl, frontendOrigin } = resolveE2EOrigins(process.env)
@@ -50,11 +50,6 @@ function credentials(): RoleCredential[] {
   ]
 }
 
-async function expectBackendAvailable(request: APIRequestContext) {
-  const response = await request.get(new URL('/openapi.json', apiBaseUrl).toString())
-  expect(response.ok()).toBe(true)
-}
-
 async function expectStorageEmpty(page: Page) {
   const storage = await page.evaluate(() => ({
     local: localStorage.length,
@@ -94,9 +89,9 @@ test.describe('real backend login', () => {
   test('each configured role authenticates and reaches its normative destination', async ({
     context,
     page,
-    request,
   }) => {
     test.skip(!realLoginEnabled, 'Requiere RUN_REAL_LOGIN_E2E=1 y credenciales locales.')
+    await waitForE2EBackend({ enabled: realLoginEnabled, apiBaseUrl })
     const failures: string[] = []
     page.on('console', (message) => {
       if (
@@ -110,7 +105,6 @@ test.describe('real backend login', () => {
       failures.push('page-error')
     })
 
-    await expectBackendAvailable(request)
     const configuredCredentials = credentials()
     expect(configuredCredentials).toHaveLength(3)
 

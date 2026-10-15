@@ -10,14 +10,15 @@ import { Button } from './button'
 
 const roots: ReturnType<typeof createRoot>[] = []
 
-function renderState(state: React.ReactNode) {
+async function renderState(state: React.ReactNode) {
   const container = document.createElement('main')
   const root = createRoot(container)
   roots.push(root)
   document.body.append(container)
 
-  act(() => {
+  await act(async () => {
     root.render(state)
+    await Promise.resolve()
   })
 
   return container
@@ -55,17 +56,18 @@ function RetryHarness({ onRetry, variant }: RetryHarnessProps) {
   )
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0)) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
 })
 
 describe('AsyncState', () => {
-  it('announces loading once while keeping every skeleton decorative', () => {
-    const container = renderState(<AsyncState.Loading label="Cargando perfil" />)
+  it('announces loading once while keeping every skeleton decorative', async () => {
+    const container = await renderState(<AsyncState.Loading label="Cargando perfil" />)
     const status = screen.getByRole('status')
     const skeletons = [...container.querySelectorAll('[data-skeleton]')]
 
@@ -77,8 +79,8 @@ describe('AsyncState', () => {
     }
   })
 
-  it('renders an empty state with semantic hierarchy and optional action', () => {
-    renderState(
+  it('renders an empty state with semantic hierarchy and optional action', async () => {
+    await renderState(
       <AsyncState.Empty
         title="Sin resultados"
         description="No encontramos contenido para mostrar."
@@ -96,8 +98,8 @@ describe('AsyncState', () => {
     expect(screen.getByRole('button', { name: 'Crear elemento' })).toBeTruthy()
   })
 
-  it('distinguishes functional error from temporary unavailability', () => {
-    renderState(
+  it('distinguishes functional error from temporary unavailability', async () => {
+    await renderState(
       <>
         <AsyncState.Error
           title="Error al cargar"
@@ -121,13 +123,13 @@ describe('AsyncState', () => {
   it('runs retry once per click and blocks a second submission while pending', async () => {
     const retry = vi.fn()
     const user = userEvent.setup()
-    renderState(<RetryHarness variant="error" onRetry={retry} />)
+    await renderState(<RetryHarness variant="error" onRetry={retry} />)
     const button = screen.getByRole<HTMLButtonElement>('button', {
       name: 'Reintentar',
     })
 
-    await user.click(button)
-    await user.click(button)
+    await act(async () => { await user.click(button) })
+    await act(async () => { await user.click(button) })
 
     expect(retry).toHaveBeenCalledTimes(1)
     expect(button.disabled).toBe(true)
@@ -137,19 +139,19 @@ describe('AsyncState', () => {
   it('runs retry once through native keyboard activation', async () => {
     const retry = vi.fn()
     const user = userEvent.setup()
-    renderState(<RetryHarness variant="unavailable" onRetry={retry} />)
+    await renderState(<RetryHarness variant="unavailable" onRetry={retry} />)
 
-    await user.tab()
-    await user.keyboard('{Enter}')
-    await user.keyboard('{Enter}')
+    await act(async () => { await user.tab() })
+    await act(async () => { await user.keyboard('{Enter}') })
+    await act(async () => { await user.keyboard('{Enter}') })
 
     expect(retry).toHaveBeenCalledTimes(1)
     expect(screen.getByRole('button').getAttribute('disabled')).not.toBeNull()
   })
 
-  it('renders external-looking state content as text', () => {
+  it('renders external-looking state content as text', async () => {
     const content = '<img src=x onerror=alert(1)>'
-    const container = renderState(
+    const container = await renderState(
       <AsyncState.Empty
         title={content}
         description={content}
@@ -162,7 +164,7 @@ describe('AsyncState', () => {
   })
 
   it('has no axe violations in representative states', async () => {
-    const container = renderState(
+    const container = await renderState(
       <>
         <AsyncState.Loading label="Cargando contenido" />
         <AsyncState.Empty

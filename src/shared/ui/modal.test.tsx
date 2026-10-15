@@ -78,23 +78,25 @@ function ProgrammaticModal({ open }: { open: boolean }) {
   )
 }
 
-function renderModal(modal: React.ReactNode) {
+async function renderModal(modal: React.ReactNode) {
   const container = document.createElement('main')
   const root = createRoot(container)
   roots.push(root)
   document.body.append(container)
 
-  act(() => {
+  await act(async () => {
     root.render(modal)
+    await Promise.resolve()
   })
 
   return { container, root }
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0)) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
 })
@@ -102,9 +104,9 @@ afterEach(() => {
 describe('Modal', () => {
   it('opens a named native dialog and moves focus to its title', async () => {
     const user = userEvent.setup()
-    renderModal(<ModalHarness />)
+    await renderModal(<ModalHarness />)
 
-    await user.click(screen.getByRole('button', { name: 'Eliminar usuario' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Eliminar usuario' })) })
     const dialog = screen.getByRole<HTMLDialogElement>('dialog', {
       name: 'Eliminar usuario',
       description: 'Esta acción no se puede deshacer.',
@@ -124,28 +126,28 @@ describe('Modal', () => {
 
   it('cycles Tab and Shift+Tab inside the dialog', async () => {
     const user = userEvent.setup()
-    renderModal(<ModalHarness />)
-    await user.click(screen.getByRole('button', { name: 'Eliminar usuario' }))
+    await renderModal(<ModalHarness />)
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Eliminar usuario' })) })
     const cancel = screen.getByRole('button', { name: 'Cancelar' })
     const confirm = screen.getByRole('button', { name: 'Eliminar' })
 
-    await user.tab()
+    await act(async () => { await user.tab() })
     expect(document.activeElement).toBe(cancel)
-    await user.tab()
+    await act(async () => { await user.tab() })
     expect(document.activeElement).toBe(confirm)
-    await user.tab()
+    await act(async () => { await user.tab() })
     expect(document.activeElement).toBe(cancel)
-    await user.tab({ shift: true })
+    await act(async () => { await user.tab({ shift: true }) })
     expect(document.activeElement).toBe(confirm)
   })
 
   it('closes with Escape and restores focus to the trigger', async () => {
     const user = userEvent.setup()
-    renderModal(<ModalHarness />)
+    await renderModal(<ModalHarness />)
     const trigger = screen.getByRole('button', { name: 'Eliminar usuario' })
 
-    await user.click(trigger)
-    await user.keyboard('{Escape}')
+    await act(async () => { await user.click(trigger) })
+    await act(async () => { await user.keyboard('{Escape}') })
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(document.activeElement).toBe(trigger)
@@ -153,11 +155,11 @@ describe('Modal', () => {
 
   it('closes through cancel and restores focus to the trigger', async () => {
     const user = userEvent.setup()
-    renderModal(<ModalHarness />)
+    await renderModal(<ModalHarness />)
     const trigger = screen.getByRole('button', { name: 'Eliminar usuario' })
 
-    await user.click(trigger)
-    await user.click(screen.getByRole('button', { name: 'Cancelar' }))
+    await act(async () => { await user.click(trigger) })
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Cancelar' })) })
 
     expect(screen.queryByRole('dialog')).toBeNull()
     expect(document.activeElement).toBe(trigger)
@@ -166,10 +168,10 @@ describe('Modal', () => {
   it('keeps context open on error and blocks repeated confirmation or close', async () => {
     const user = userEvent.setup()
     const confirm = vi.fn()
-    renderModal(<ModalHarness onConfirm={confirm} />)
-    await user.click(screen.getByRole('button', { name: 'Eliminar usuario' }))
+    await renderModal(<ModalHarness onConfirm={confirm} />)
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Eliminar usuario' })) })
 
-    await user.dblClick(screen.getByRole('button', { name: 'Eliminar' }))
+    await act(async () => { await user.dblClick(screen.getByRole('button', { name: 'Eliminar' })) })
     const dialog = screen.getByRole('dialog')
     const error = screen.getByRole('alert')
     const pendingConfirm = screen.getByRole<HTMLButtonElement>('button', {
@@ -190,38 +192,37 @@ describe('Modal', () => {
       )
     })
 
-    await user.keyboard('{Escape}')
+    await act(async () => { await user.keyboard('{Escape}') })
     expect(screen.getByRole('dialog')).toBe(dialog)
   })
 
   it('degrades safely when the trigger disappears or the dialog unmounts', async () => {
     const user = userEvent.setup()
-    const { root } = renderModal(<ModalHarness hideTriggerWhileOpen />)
-    await user.click(screen.getByRole('button', { name: 'Eliminar usuario' }))
+    const { root } = await renderModal(<ModalHarness hideTriggerWhileOpen />)
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Eliminar usuario' })) })
 
-    expect(() => {
-      act(() => {
-        root.render(<ProgrammaticModal open={false} />)
-      })
-    }).not.toThrow()
+    await expect(act(async () => {
+      root.render(<ProgrammaticModal open={false} />)
+      await Promise.resolve()
+    })).resolves.toBeUndefined()
     expect(document.activeElement).toBe(document.body)
 
-    act(() => {
+    await act(async () => {
       root.render(<ProgrammaticModal open />)
+      await Promise.resolve()
     })
     expect(screen.getByRole('dialog')).toBeTruthy()
-    expect(() => {
-      act(() => {
-        root.unmount()
-      })
-    }).not.toThrow()
+    await expect(act(async () => {
+      root.unmount()
+      await Promise.resolve()
+    })).resolves.toBeUndefined()
     roots.splice(roots.indexOf(root), 1)
   })
 
   it('has no axe violations while open', async () => {
     const user = userEvent.setup()
-    const { container } = renderModal(<ModalHarness />)
-    await user.click(screen.getByRole('button', { name: 'Eliminar usuario' }))
+    const { container } = await renderModal(<ModalHarness />)
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Eliminar usuario' })) })
     const results = await axe.run(container, {
       rules: { 'color-contrast': { enabled: false } },
     })

@@ -115,23 +115,25 @@ function PendingActionHarness() {
   )
 }
 
-function renderProvider(children: React.ReactNode) {
+async function renderProvider(children: React.ReactNode) {
   const container = document.createElement('div')
   const root = createRoot(container)
   roots.push(root)
   document.body.append(container)
 
-  act(() => {
+  await act(async () => {
     root.render(<ToastProvider>{children}</ToastProvider>)
+    await Promise.resolve()
   })
 
   return container
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0)) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
 })
@@ -139,10 +141,10 @@ afterEach(() => {
 describe('ToastProvider', () => {
   it('announces success politely once without stealing focus', async () => {
     const user = userEvent.setup()
-    const container = renderProvider(<ToastHarness />)
+    const container = await renderProvider(<ToastHarness />)
     const trigger = screen.getByRole('button', { name: 'Mostrar éxito' })
 
-    await user.click(trigger)
+    await act(async () => { await user.click(trigger) })
     const status = screen.getByRole('status')
 
     expect(document.activeElement).toBe(trigger)
@@ -154,9 +156,9 @@ describe('ToastProvider', () => {
 
   it('announces errors assertively in one alert region', async () => {
     const user = userEvent.setup()
-    const container = renderProvider(<ToastHarness />)
+    const container = await renderProvider(<ToastHarness />)
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar error' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Mostrar error' })) })
     const alert = screen.getByRole('alert')
 
     expect(alert.getAttribute('aria-live')).toBe('assertive')
@@ -170,42 +172,42 @@ describe('ToastProvider', () => {
 
   it('deduplicates by action key instead of message content', async () => {
     const user = userEvent.setup()
-    renderProvider(<ToastHarness />)
+    await renderProvider(<ToastHarness />)
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar duplicado' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Mostrar duplicado' })) })
     expect(screen.getAllByRole('status')).toHaveLength(1)
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar mismo mensaje' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Mostrar mismo mensaje' })) })
     expect(screen.getAllByText('Mismo mensaje.')).toHaveLength(2)
   })
 
   it('keeps stable IDs through rerenders and closes by keyboard', async () => {
     const user = userEvent.setup()
-    renderProvider(<ToastHarness />)
+    await renderProvider(<ToastHarness />)
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar éxito' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Mostrar éxito' })) })
     const toast = screen.getByRole('status').closest('[data-toast]')
     const toastId = toast?.id
 
     expect(toastId).toBeTruthy()
-    await user.click(
-      screen.getByRole('button', { name: 'Renderizar nuevamente' }),
-    )
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Renderizar nuevamente' }))
+    })
     expect(screen.getByRole('status').closest('[data-toast]')?.id).toBe(toastId)
 
     const close = screen.getByRole('button', { name: 'Cerrar notificación' })
     close.focus()
-    await user.keyboard('{Enter}')
+    await act(async () => { await user.keyboard('{Enter}') })
 
     expect(screen.queryByRole('status')).toBeNull()
   })
 
   it('blocks repeated pending submissions and creates one toast', async () => {
     const user = userEvent.setup()
-    renderProvider(<PendingActionHarness />)
+    await renderProvider(<PendingActionHarness />)
     const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Enviar' })
 
-    await user.dblClick(submit)
+    await act(async () => { await user.dblClick(submit) })
 
     expect(submit.disabled).toBe(true)
     expect(screen.getAllByRole('status')).toHaveLength(1)
@@ -213,10 +215,10 @@ describe('ToastProvider', () => {
 
   it('renders external-looking messages as text', async () => {
     const user = userEvent.setup()
-    const container = renderProvider(<ToastHarness />)
+    const container = await renderProvider(<ToastHarness />)
     const content = '<img src=x onerror=alert(1)>'
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar texto externo' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Mostrar texto externo' })) })
 
     expect(screen.getByText(content)).toBeTruthy()
     expect(container.querySelector('[data-toast] img')).toBeNull()
@@ -224,10 +226,10 @@ describe('ToastProvider', () => {
 
   it('has no axe violations with success and error toasts', async () => {
     const user = userEvent.setup()
-    const container = renderProvider(<ToastHarness />)
+    const container = await renderProvider(<ToastHarness />)
 
-    await user.click(screen.getByRole('button', { name: 'Mostrar éxito' }))
-    await user.click(screen.getByRole('button', { name: 'Mostrar error' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Mostrar éxito' })) })
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Mostrar error' })) })
     const results = await axe.run(container, {
       rules: { 'color-contrast': { enabled: false } },
     })

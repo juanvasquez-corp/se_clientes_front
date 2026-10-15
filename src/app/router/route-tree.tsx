@@ -20,9 +20,9 @@ const ProfileRoute = lazyRouteComponent(
   () => import('../../features/profile/profile-page'),
   'ProfileRoute',
 )
-const UsersRoutePlaceholder = lazyRouteComponent(
-  () => import('./route-placeholders'),
-  'UsersRoutePlaceholder',
+const UsersRoute = lazyRouteComponent(
+  () => import('../../features/users/users-route'),
+  'UsersRoute',
 )
 const NewUserRoutePlaceholder = lazyRouteComponent(
   () => import('./route-placeholders'),
@@ -82,9 +82,28 @@ const profileRoute = createRoute({
 const usersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: 'users',
-  beforeLoad: ({ context, location }) =>
-    privateRouteGuard({ context, pathname: location.pathname }),
-  component: UsersRoutePlaceholder,
+  beforeLoad: async ({ abortController, context, location, preload }) => {
+    await privateRouteGuard({ context, pathname: location.pathname })
+    const session = context.session.store.getState()
+    if (
+      preload ||
+      location.pathname !== '/users' ||
+      session.status !== 'authenticated' ||
+      session.identity.role !== 'superadmin'
+    ) {
+      return
+    }
+    const { retainInitialUsersDirectoryQuery } = await import(
+      '../../features/users/users-query'
+    )
+    retainInitialUsersDirectoryQuery({
+      abortSignal: abortController.signal,
+      accountUuid: session.identity.userUuid,
+      queryClient: context.queryClient,
+      usersApi: context.session.usersApi,
+    })
+  },
+  component: UsersRoute,
 })
 
 const newUserRoute = createRoute({

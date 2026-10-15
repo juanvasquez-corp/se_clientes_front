@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 import axe, { type AxeResults } from 'axe-core'
 
 import { resolveE2EOrigins } from '../../src/test/e2e-origins'
+import { waitForE2EBackend } from '../../src/test/e2e-backend-readiness'
 
 const { apiBaseUrl, frontendOrigin } = resolveE2EOrigins(process.env)
 const profileUrl = `${frontendOrigin}/profile`
@@ -283,6 +284,7 @@ function requiredEnvironment(name: string): string {
 
 test('real backend GET/PUT restores editable profiles and keeps visualizer readonly', async ({ context, page }) => {
   test.skip(!realProfileEnabled, 'Requiere RUN_REAL_PROFILE_E2E=1 y credenciales locales.')
+  await waitForE2EBackend({ enabled: realProfileEnabled, apiBaseUrl })
   const credentials = [
     ['superadmin', requiredEnvironment('E2E_SUPERADMIN_EMAIL'), requiredEnvironment('E2E_SUPERADMIN_PASSWORD')],
     ['master', requiredEnvironment('E2E_MASTER_EMAIL'), requiredEnvironment('E2E_MASTER_PASSWORD')],

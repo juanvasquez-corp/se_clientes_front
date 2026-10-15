@@ -18,9 +18,12 @@ import '../../app/router/system-routes'
 import type { AppRouterContext } from '../../app/router/router-context'
 import { AppProviders } from '../../app/providers'
 import { createProfileApiStub } from '../../test/profile-api-stub'
+import { createUsersApiStub } from '../../test/users-api-stub'
 
 const roots: Root[] = []
+const fixtures: ReturnType<typeof createSystemRouter>[] = []
 const USER_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
+const preloadedRoutes: string[] = []
 
 function authenticate(store: SessionStore) {
   store.getState().stageTokens({
@@ -68,6 +71,7 @@ function createSystemRouter({
       login: () => Promise.resolve({ kind: 'technical' }),
       logoutController: { logout: () => Promise.resolve({ kind: 'logged-out' }) },
       profileApi: createProfileApiStub(),
+      usersApi: createUsersApiStub(),
       createSecurityRecoveryController,
       coordinator: {
         restoreInitial: () => Promise.resolve('unavailable'),
@@ -80,20 +84,54 @@ function createSystemRouter({
     context,
     history: createMemoryHistory({ initialEntries: [initialEntry] }),
   })
-  return { createSecurityRecoveryController, router, store }
+  const renderedPaths: string[] = []
+  const unsubscribe = router.subscribe('onRendered', ({ toLocation }) => {
+    renderedPaths.push(toLocation.pathname)
+  })
+  return { createSecurityRecoveryController, router, store, renderedPaths, unsubscribe }
 }
+
+async function preloadDestinationComponents(): Promise<void> {
+  const { router, unsubscribe } = createSystemRouter({
+    initialEntry: '/unavailable',
+    prepareStore: authenticate,
+  })
+  try {
+    for (const path of ['/users', '/login'] as const) {
+      const component = router.routesById[path].options.component
+      if (component === undefined || typeof component.preload !== 'function') {
+        throw new Error(`Expected preloadable ${path} component.`)
+      }
+      const preload = vi.spyOn(component, 'preload')
+      try {
+        await component.preload()
+        if (preload.mock.calls.length === 1) preloadedRoutes.push(path)
+      } finally {
+        preload.mockRestore()
+      }
+    }
+  } finally {
+    unsubscribe()
+    router.history.destroy()
+    router.options.context.queryClient.clear()
+  }
+}
+
+// Solo carga el módulo real, no guards ni datos, fuera del timeout de cada caso.
+await preloadDestinationComponents()
 
 async function renderSystemRoute(
   options: Parameters<typeof createSystemRouter>[0],
 ) {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
   const fixture = createSystemRouter(options)
+  fixtures.push(fixture)
   const container = document.createElement('div')
   document.body.append(container)
   const root = createRoot(container)
   roots.push(root)
-  await fixture.router.load()
-  act(() => {
+  await act(async () => {
+    await fixture.router.load()
     root.render(
       <StrictMode>
         <AppProviders queryClient={fixture.router.options.context.queryClient}>
@@ -105,13 +143,27 @@ async function renderSystemRoute(
   return { container, ...fixture }
 }
 
-afterEach(() => {
-  for (const root of roots.splice(0)) {
-    act(() => {
-      root.unmount()
+afterEach(async () => {
+  try {
+    for (const { router, renderedPaths } of fixtures) {
+      expect(router.state.status).toBe('idle')
+      expect(router.state.isLoading).toBe(false)
+      expect(renderedPaths.at(-1)).toBe(router.state.resolvedLocation?.pathname)
+    }
+  } finally {
+    await act(async () => {
+      for (const root of roots.splice(0)) root.unmount()
+      await Promise.all(fixtures.map(({ router }) =>
+        router.options.context.queryClient.cancelQueries(),
+      ))
     })
+    for (const { router, unsubscribe } of fixtures.splice(0)) {
+      unsubscribe()
+      router.history.destroy()
+      router.options.context.queryClient.clear()
+    }
+    vi.restoreAllMocks()
   }
-  vi.restoreAllMocks()
 })
 
 describe('ForbiddenPage', () => {
@@ -129,10 +181,15 @@ describe('ForbiddenPage', () => {
     expect(document.body.textContent).not.toMatch(/ana@|uuid|usuarios pendiente/i)
     expect(screen.queryByRole('navigation')).toBeNull()
 
-    await user.click(screen.getByRole('button', { name: 'Ir al inicio de sesión' }))
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Ir al inicio de sesión' }))
+    })
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/login')
     })
+    expect(router.state.status).toBe('idle')
+    expect(router.state.resolvedLocation?.pathname).toBe('/login')
+    expect(screen.getByRole('heading', { name: 'Inicia sesión' })).toBeDefined()
 
     const results = await axe.run(container, {
       rules: { 'color-contrast': { enabled: false } },
@@ -147,11 +204,16 @@ describe('ForbiddenPage', () => {
     })
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Volver a mi espacio' }))
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Volver a mi espacio' }))
+    })
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/users')
     })
+    expect(router.state.status).toBe('idle')
+    expect(router.state.resolvedLocation?.pathname).toBe('/users')
+    expect(screen.getByRole('heading', { name: 'Gestión de usuarios' })).toBeDefined()
   })
 
   it('mounts Spec005 security recovery for a blocked session without private content', async () => {
@@ -194,7 +256,7 @@ describe('UnavailablePage', () => {
     const user = userEvent.setup()
     const retry = screen.getByRole('button', { name: 'Reintentar' })
 
-    await user.dblClick(retry)
+    await act(async () => { await user.dblClick(retry) })
     expect(retryInitial).toHaveBeenCalledTimes(1)
     expect(
       screen.getByRole<HTMLButtonElement>('button', { name: 'Reintentando...' })
@@ -209,6 +271,9 @@ describe('UnavailablePage', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/login')
     })
+    expect(router.state.status).toBe('idle')
+    expect(router.state.resolvedLocation?.pathname).toBe('/login')
+    expect(screen.getByRole('heading', { name: 'Inicia sesión' })).toBeDefined()
   })
 
   it('uses security recovery for unavailable protection and not initial retry', async () => {
@@ -242,7 +307,9 @@ describe('UnavailablePage', () => {
     })
     const user = userEvent.setup()
 
-    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+    })
 
     await waitFor(() => {
       expect(screen.getByRole('button', { name: 'Reintentar' })).toBeDefined()
@@ -252,6 +319,7 @@ describe('UnavailablePage', () => {
   })
 
   it('never presents global unavailable for an operational authenticated identity', async () => {
+    expect(preloadedRoutes).toEqual(['/users', '/login'])
     const { router } = await renderSystemRoute({
       initialEntry: '/unavailable',
       prepareStore: authenticate,

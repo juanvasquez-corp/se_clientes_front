@@ -2,6 +2,7 @@ import { expect, test, type Page, type Route } from '@playwright/test'
 import axe, { type AxeResults } from 'axe-core'
 
 import { resolveE2EOrigins } from '../../src/test/e2e-origins'
+import { waitForE2EBackend } from '../../src/test/e2e-backend-readiness'
 
 declare global {
   interface Window {
@@ -374,13 +375,15 @@ test.describe('security recovery and logout', () => {
         '503': { status: 'unavailable', path: '/unavailable' },
         network: { status: 'unavailable', path: '/unavailable' },
       }[kind]
+      // En éxito el estado ya era blocked antes de enviar HTTP; esperar el commit de la recuperación.
+      if (kind === 'success') {
+        await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible()
+      }
+      await expect.poll(async () => (await state(page))?.path).toBe(expected.path)
       await expect.poll(async () => (await state(page))?.status).toBe(expected.status)
       expect(requests).toBe(1)
       expect((await state(page))?.hasUsableAccess).toBe(false)
       expect((await state(page))?.hasUsableCsrf).toBe(false)
-      if (kind === 'success') {
-        await expect(page.getByRole('button', { name: 'Reintentar' })).toBeVisible()
-      }
     })
   }
 
@@ -684,11 +687,9 @@ test.describe('RF21 cross-tab replacement matrix', () => {
 test('real backend restores and closes a normal session', async ({
   context,
   page,
-  request,
 }) => {
   test.skip(!realSessionEnabled, 'Requiere opt-in y credenciales E2E locales.')
-  const preflight = await request.get(new URL('/openapi.json', apiBaseUrl).toString())
-  expect(preflight.ok()).toBe(true)
+  await waitForE2EBackend({ enabled: realSessionEnabled, apiBaseUrl })
   const email = requiredEnvironment('E2E_MASTER_EMAIL')
   const password = requiredEnvironment('E2E_MASTER_PASSWORD')
   const order: string[] = []

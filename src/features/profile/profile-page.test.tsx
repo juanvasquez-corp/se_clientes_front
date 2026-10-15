@@ -1,5 +1,5 @@
 import { act } from 'react'
-import { QueryClientProvider } from '@tanstack/react-query'
+import { notifyManager, QueryClientProvider } from '@tanstack/react-query'
 import axe from 'axe-core'
 import { createRoot } from 'react-dom/client'
 import { within } from '@testing-library/dom'
@@ -25,11 +25,13 @@ const PROFILE: UserResponse = {
 }
 
 const roots: ReturnType<typeof createRoot>[] = []
+const queryClients: ReturnType<typeof createTestQueryClient>[] = []
 
-function renderPage(profileApi: ProfileApi, profile: UserResponse = PROFILE) {
+async function renderPage(profileApi: ProfileApi, profile: UserResponse = PROFILE) {
   const container = document.createElement('main')
   const root = createRoot(container)
   const queryClient = createTestQueryClient()
+  queryClients.push(queryClient)
   const sessionStore = createSessionStore()
   roots.push(root)
   document.body.append(container)
@@ -48,7 +50,7 @@ function renderPage(profileApi: ProfileApi, profile: UserResponse = PROFILE) {
     role: profile.rol,
     isActive: profile.is_active,
   })
-  act(() => {
+  await act(async () => {
     root.render(
       <QueryClientProvider client={queryClient}>
         <ToastProvider>
@@ -61,21 +63,33 @@ function renderPage(profileApi: ProfileApi, profile: UserResponse = PROFILE) {
         </ToastProvider>
       </QueryClientProvider>,
     )
+    await Promise.resolve()
   })
   return { container, queryClient, scope: within(container) }
 }
 
-afterEach(() => {
-  for (const root of roots.splice(0)) {
-    act(() => {
-      root.unmount()
-    })
-  }
+async function settleReads(queryClient: ReturnType<typeof createTestQueryClient>) {
+  await act(async () => {
+    const reads = queryClient.getQueryCache().getAll()
+      .map((query) => query.promise)
+      .filter((promise) => promise !== undefined)
+    await Promise.allSettled(reads)
+    // Esperar también la notificación real de Query; no cambiar su scheduler ni sus datos.
+    await new Promise<void>((resolve) => { notifyManager.schedule(resolve) })
+  })
+}
+
+afterEach(async () => {
+  await act(async () => {
+    for (const root of roots.splice(0)) root.unmount()
+    await Promise.all(queryClients.map((client) => client.cancelQueries()))
+  })
+  for (const client of queryClients.splice(0)) client.clear()
 })
 
 describe('ProfilePageContent', () => {
-  it('shows an accessible loading state without flashing private profile data', () => {
-    renderPage({
+  it('shows an accessible loading state without flashing private profile data', async () => {
+    await renderPage({
       get: () => new Promise(() => undefined),
       update: vi.fn(),
     })
@@ -89,7 +103,8 @@ describe('ProfilePageContent', () => {
     const get = vi.fn<ProfileApi['get']>(() =>
       Promise.resolve({ kind: 'success', data: PROFILE }),
     )
-    const { container, scope } = renderPage({ get, update: vi.fn() })
+    const { container, scope, queryClient } = await renderPage({ get, update: vi.fn() })
+    await settleReads(queryClient)
 
     expect(await scope.findByRole('heading', { level: 1, name: 'Mi perfil' })).toBeTruthy()
     expect(await scope.findByText('Perfil de solo lectura')).toBeTruthy()
@@ -104,11 +119,13 @@ describe('ProfilePageContent', () => {
       .mockRejectedValueOnce(new ApiError(classifyApiFailure(503, { detail: 'private' })))
       .mockResolvedValueOnce({ kind: 'success', data: PROFILE })
     const user = userEvent.setup()
-    const { scope } = renderPage({ get, update: vi.fn() })
+    const { scope, queryClient } = await renderPage({ get, update: vi.fn() })
+    await settleReads(queryClient)
 
     expect(await scope.findByText('No pudimos cargar tu perfil')).toBeTruthy()
     expect(get).toHaveBeenCalledTimes(1)
-    await user.click(scope.getByRole('button', { name: 'Reintentar' }))
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Reintentar' })) })
+    await settleReads(queryClient)
 
     expect(await scope.findByText('Perfil de solo lectura')).toBeTruthy()
     expect(get).toHaveBeenCalledTimes(2)
@@ -116,25 +133,26 @@ describe('ProfilePageContent', () => {
   })
 
   it('renders no private content for delegated session outcomes', async () => {
-    const { container } = renderPage({
+    const { container, queryClient } = await renderPage({
       get: () => Promise.resolve({ kind: 'session', state: 'dead' }),
       update: vi.fn(),
     })
 
-    await act(async () => Promise.resolve())
+    await settleReads(queryClient)
     expect(container.querySelector('form, dl')).toBeNull()
     expect(container.textContent).not.toContain('ana@example.com')
   })
 
   it('has no axe violations for the loaded editable page', async () => {
     const editable = { ...PROFILE, rol: 'master' as const }
-    const { container, scope } = renderPage(
+    const { container, scope, queryClient } = await renderPage(
       {
         get: () => Promise.resolve({ kind: 'success', data: editable }),
         update: vi.fn(),
       },
       editable,
     )
+    await settleReads(queryClient)
     await scope.findByRole('form', { name: 'Editar perfil' })
 
     const results = await axe.run(container, {

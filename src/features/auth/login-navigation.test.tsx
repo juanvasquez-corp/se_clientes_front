@@ -44,7 +44,7 @@ function authenticateStore(role: UserRole) {
   return sessionStore
 }
 
-function renderLoginPage({
+async function renderLoginPage({
   navigation,
   onSubmit,
   sessionStore = createSessionStore(),
@@ -58,7 +58,7 @@ function renderLoginPage({
   roots.push(root)
   document.body.append(container)
 
-  act(() => {
+  await act(async () => {
     root.render(
       <StrictMode>
         <LoginPage
@@ -68,15 +68,17 @@ function renderLoginPage({
         />
       </StrictMode>,
     )
+    await Promise.resolve()
   })
 
   return { container, sessionStore }
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0)) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
 })
@@ -104,10 +106,10 @@ describe('LoginPage navigation port', () => {
     ['visualizer', '/profile'],
   ] as const)(
     'replaces login once for an existing %s session without flashing the form',
-    (role, destination) => {
+    async (role, destination) => {
       const replace = vi.fn()
 
-      renderLoginPage({
+      await renderLoginPage({
         navigation: { replace },
         onSubmit: () => Promise.resolve({ kind: 'technical' }),
         sessionStore: authenticateStore(role),
@@ -119,10 +121,10 @@ describe('LoginPage navigation port', () => {
     },
   )
 
-  it('keeps an anonymous session on login without navigating', () => {
+  it('keeps an anonymous session on login without navigating', async () => {
     const replace = vi.fn()
 
-    renderLoginPage({
+    await renderLoginPage({
       navigation: { replace },
       onSubmit: () => Promise.resolve({ kind: 'technical' }),
     })
@@ -142,14 +144,14 @@ describe('LoginPage navigation port', () => {
         }),
     )
     const user = userEvent.setup()
-    renderLoginPage({ navigation: { replace }, onSubmit, sessionStore })
+    await renderLoginPage({ navigation: { replace }, onSubmit, sessionStore })
 
-    await user.type(
+    await act(async () => { await user.type(
       screen.getByRole('textbox', { name: /correo electrónico/i }),
       'ana@example.com',
-    )
-    await user.type(screen.getByLabelText(/^contraseña.*obligatorio/i), 'password')
-    await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+    ) })
+    await act(async () => { await user.type(screen.getByLabelText(/^contraseña.*obligatorio/i), 'password') })
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Ingresar' })) })
 
     expect(onSubmit).toHaveBeenCalledTimes(1)
     expect(replace).not.toHaveBeenCalled()
@@ -171,17 +173,17 @@ describe('LoginPage navigation port', () => {
   it('does not navigate when profile validation fails', async () => {
     const replace = vi.fn()
     const user = userEvent.setup()
-    renderLoginPage({
+    await renderLoginPage({
       navigation: { replace },
       onSubmit: () => Promise.resolve({ kind: 'technical' }),
     })
 
-    await user.type(
+    await act(async () => { await user.type(
       screen.getByRole('textbox', { name: /correo electrónico/i }),
       'ana@example.com',
-    )
-    await user.type(screen.getByLabelText(/^contraseña.*obligatorio/i), 'password')
-    await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+    ) })
+    await act(async () => { await user.type(screen.getByLabelText(/^contraseña.*obligatorio/i), 'password') })
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Ingresar' })) })
     await screen.findByText('No fue posible completar el inicio de sesión. Intenta de nuevo.')
 
     expect(replace).not.toHaveBeenCalled()

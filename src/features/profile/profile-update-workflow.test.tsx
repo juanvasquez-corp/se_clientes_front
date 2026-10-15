@@ -79,8 +79,9 @@ function authenticate(store: SessionStore, profile: UserResponse): void {
 }
 
 const roots: ReturnType<typeof createRoot>[] = []
+const queryClients: ReturnType<typeof createTestQueryClient>[] = []
 
-function renderWorkflow({
+async function renderWorkflow({
   navigate = vi.fn(),
   profile = PROFILE,
   update,
@@ -92,6 +93,7 @@ function renderWorkflow({
   const container = document.createElement('main')
   const root = createRoot(container)
   const queryClient = createTestQueryClient()
+  queryClients.push(queryClient)
   const sessionStore = createSessionStore()
   roots.push(root)
   document.body.append(container)
@@ -101,8 +103,8 @@ function renderWorkflow({
     data: profile,
   })
   const api: Pick<ProfileApi, 'update'> = { update }
-  const render = (currentProfile: UserResponse) => {
-    act(() => {
+  const render = async (currentProfile: UserResponse) => {
+    await act(async () => {
       root.render(
         <QueryClientProvider client={queryClient}>
           <ToastProvider>
@@ -115,9 +117,10 @@ function renderWorkflow({
           </ToastProvider>
         </QueryClientProvider>,
       )
+      await Promise.resolve()
     })
   }
-  render(profile)
+  await render(profile)
 
   return {
     container,
@@ -140,12 +143,12 @@ function createNetworkProfileApi(recovery: RecoveryResult = 'dead'): ProfileApi 
   })
 }
 
-afterEach(() => {
-  for (const root of roots.splice(0)) {
-    act(() => {
-      root.unmount()
-    })
-  }
+afterEach(async () => {
+  await act(async () => {
+    for (const root of roots.splice(0)) root.unmount()
+    await Promise.all(queryClients.map((client) => client.cancelQueries()))
+  })
+  for (const client of queryClients.splice(0)) client.clear()
 })
 
 describe('ProfileUpdateWorkflow', () => {
@@ -153,11 +156,11 @@ describe('ProfileUpdateWorkflow', () => {
     const request = deferred<MutationOutcome<UserResponse>>()
     const update = vi.fn<ProfileApi['update']>(() => request.promise)
     const user = userEvent.setup()
-    const { container, scope } = renderWorkflow({ update })
+    const { container, scope } = await renderWorkflow({ update })
     const save = scope.getByRole('button', { name: 'Guardar cambios' })
 
-    await user.dblClick(save)
-    await user.keyboard('{Enter}')
+    await act(async () => { await user.dblClick(save) })
+    await act(async () => { await user.keyboard('{Enter}') })
 
     expect(update).toHaveBeenCalledTimes(1)
     expect(scope.getByRole('status').textContent).toContain('Guardando tus cambios.')
@@ -188,12 +191,12 @@ describe('ProfileUpdateWorkflow', () => {
       Promise.resolve({ kind: 'success', data: confirmed }),
     )
     const user = userEvent.setup()
-    const { queryClient, scope, sessionStore } = renderWorkflow({ update })
+    const { queryClient, scope, sessionStore } = await renderWorkflow({ update })
     const name = scope.getByRole<HTMLInputElement>('textbox', { name: /nombre.*obligatorio/i })
 
-    await user.clear(name)
-    await user.type(name, 'Valor local')
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.clear(name) })
+    await act(async () => { await user.type(name, 'Valor local') })
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
     expect(await scope.findByText('Cambios guardados correctamente.')).toBeTruthy()
     expect(scope.getAllByRole('status')).toHaveLength(1)
@@ -217,16 +220,16 @@ describe('ProfileUpdateWorkflow', () => {
   it('cancels dirty and invalid values with zero request and no toast', async () => {
     const update = vi.fn<ProfileApi['update']>()
     const user = userEvent.setup()
-    const { container, scope } = renderWorkflow({
+    const { container, scope } = await renderWorkflow({
       profile: { ...PROFILE, last_name: null, phone_number: null },
       update,
     })
     const name = scope.getByRole<HTMLInputElement>('textbox', { name: /nombre.*obligatorio/i })
 
-    await user.clear(name)
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.clear(name) })
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
     expect(container.querySelector('[aria-invalid="true"]')).toBe(name)
-    await user.click(scope.getByRole('button', { name: 'Cancelar' }))
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Cancelar' })) })
 
     expect(name.value).toBe('Ana')
     expect(scope.getByRole<HTMLInputElement>('textbox', { name: /^apellido/i }).value).toBe('')
@@ -245,19 +248,19 @@ describe('ProfileUpdateWorkflow', () => {
       Promise.resolve({ kind: 'success', data: responses.shift() ?? PROFILE }),
     )
     const user = userEvent.setup()
-    const { scope } = renderWorkflow({ update })
+    const { scope } = await renderWorkflow({ update })
     const name = scope.getByRole<HTMLInputElement>('textbox', { name: /nombre.*obligatorio/i })
 
-    await user.clear(name)
-    await user.type(name, 'Primera edición')
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.clear(name) })
+    await act(async () => { await user.type(name, 'Primera edición') })
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
     await scope.findByText('Cambios guardados correctamente.')
-    await user.clear(name)
-    await user.type(name, 'Segunda edición')
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
-    await user.clear(name)
-    await user.type(name, 'Cambio sin guardar')
-    await user.click(scope.getByRole('button', { name: 'Cancelar' }))
+    await act(async () => { await user.clear(name) })
+    await act(async () => { await user.type(name, 'Segunda edición') })
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
+    await act(async () => { await user.clear(name) })
+    await act(async () => { await user.type(name, 'Cambio sin guardar') })
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Cancelar' })) })
 
     expect(update).toHaveBeenCalledTimes(2)
     expect(name.value).toBe('Segunda confirmación')
@@ -272,12 +275,12 @@ describe('ProfileUpdateWorkflow', () => {
       Promise.reject(new Error('sanitized failure')),
     )
     const user = userEvent.setup()
-    const { scope } = renderWorkflow({ update })
+    const { scope } = await renderWorkflow({ update })
     const name = scope.getByRole<HTMLInputElement>('textbox', { name: /nombre.*obligatorio/i })
 
-    await user.clear(name)
-    await user.type(name, 'Cambio preservado')
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.clear(name) })
+    await act(async () => { await user.type(name, 'Cambio preservado') })
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
     expect((await scope.findByRole('alert')).textContent).toContain(
       'No fue posible guardar los cambios de forma segura.',
@@ -299,18 +302,18 @@ describe('ProfileUpdateWorkflow', () => {
     )
     const user = userEvent.setup()
     const api = createNetworkProfileApi('recovered')
-    const { scope } = renderWorkflow({ update: api.update })
+    const { scope } = await renderWorkflow({ update: api.update })
     const name = scope.getByRole<HTMLInputElement>('textbox', { name: /nombre.*obligatorio/i })
 
-    await user.clear(name)
-    await user.type(name, 'Cambio preservado')
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.clear(name) })
+    await act(async () => { await user.type(name, 'Cambio preservado') })
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
     expect(await scope.findByText('Tu sesión fue renovada. Confirma para guardar.')).toBeTruthy()
     expect(name.value).toBe('Cambio preservado')
     expect(requests).toBe(1)
 
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
     expect(await scope.findByText('Cambios guardados correctamente.')).toBeTruthy()
     expect(requests).toBe(2)
     expect(name.value).toBe('Confirmado tras renovar')
@@ -334,12 +337,12 @@ describe('ProfileUpdateWorkflow', () => {
     )
     const user = userEvent.setup()
     const api = createNetworkProfileApi()
-    const { queryClient, scope } = renderWorkflow({ update: api.update })
+    const { queryClient, scope } = await renderWorkflow({ update: api.update })
     const email = scope.getByRole<HTMLInputElement>('textbox', { name: /correo electrónico/i })
 
-    await user.clear(email)
-    await user.type(email, 'reservado@example.com')
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.clear(email) })
+    await act(async () => { await user.type(email, 'reservado@example.com') })
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
     expect(await scope.findByText('El correo ya está reservado.')).toBeTruthy()
     expect(email.value).toBe('reservado@example.com')
@@ -349,7 +352,7 @@ describe('ProfileUpdateWorkflow', () => {
       data: PROFILE,
     })
 
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
     expect(await scope.findByText('Cambios guardados correctamente.')).toBeTruthy()
     expect(scope.queryByText('El correo ya está reservado.')).toBeNull()
     expect(requests).toBe(2)
@@ -380,11 +383,11 @@ describe('ProfileUpdateWorkflow', () => {
     )
     const user = userEvent.setup()
     const api = createNetworkProfileApi()
-    const { container, scope } = renderWorkflow({ update: api.update })
+    const { container, scope } = await renderWorkflow({ update: api.update })
     const name = scope.getByRole<HTMLInputElement>('textbox', { name: /nombre.*obligatorio/i })
     const email = scope.getByRole<HTMLInputElement>('textbox', { name: /correo electrónico/i })
 
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
     expect(await scope.findByText('Nombre rechazado')).toBeTruthy()
     expect(scope.getByText('Correo rechazado')).toBeTruthy()
@@ -396,7 +399,7 @@ describe('ProfileUpdateWorkflow', () => {
     expect(container.textContent).not.toMatch(/Mensaje desconocido|private-input|private-context/)
     expect(requests).toBe(1)
 
-    await user.click(scope.getByRole('button', { name: 'Cancelar' }))
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Cancelar' })) })
     expect(scope.queryByText('Nombre rechazado')).toBeNull()
     expect(scope.queryByText('Correo rechazado')).toBeNull()
     expect(scope.queryByText('Revisa los campos señalados y vuelve a intentar.')).toBeNull()
@@ -420,12 +423,12 @@ describe('ProfileUpdateWorkflow', () => {
       )
       const user = userEvent.setup()
       const api = createNetworkProfileApi()
-      const { container, navigate, scope } = renderWorkflow({ update: api.update })
+      const { container, navigate, scope } = await renderWorkflow({ update: api.update })
       const name = scope.getByRole<HTMLInputElement>('textbox', { name: /nombre.*obligatorio/i })
 
-      await user.clear(name)
-      await user.type(name, 'Cambio preservado')
-      await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+      await act(async () => { await user.clear(name) })
+      await act(async () => { await user.type(name, 'Cambio preservado') })
+      await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
       expect(await scope.findByText('El servicio no está disponible.')).toBeTruthy()
       expect(scope.getByRole('button', { name: 'Reintentar guardado' })).toBeTruthy()
@@ -439,7 +442,7 @@ describe('ProfileUpdateWorkflow', () => {
       })
       expect(results.violations).toEqual([])
 
-      await user.click(scope.getByRole('button', { name: 'Reintentar guardado' }))
+      await act(async () => { await user.click(scope.getByRole('button', { name: 'Reintentar guardado' })) })
       expect(requests).toBe(2)
     },
   )
@@ -460,9 +463,9 @@ describe('ProfileUpdateWorkflow', () => {
       )
       const user = userEvent.setup()
       const api = createNetworkProfileApi(recovery)
-      const port = renderWorkflow({ update: api.update })
+      const port = await renderWorkflow({ update: api.update })
 
-      await user.click(port.scope.getByRole('button', { name: 'Guardar cambios' }))
+      await act(async () => { await user.click(port.scope.getByRole('button', { name: 'Guardar cambios' })) })
 
       expect(port.navigate).toHaveBeenCalledWith(destination)
       expect(port.sessionStore.getState().status).toBe(recovery)
@@ -481,9 +484,9 @@ describe('ProfileUpdateWorkflow', () => {
   ])('shows a controlled safe fallback for non-specialized failures', async (failure, title) => {
     const update = vi.fn<ProfileApi['update']>(() => Promise.reject(failure))
     const user = userEvent.setup()
-    const { container, scope } = renderWorkflow({ update })
+    const { container, scope } = await renderWorkflow({ update })
 
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
     expect(await scope.findByText(title)).toBeTruthy()
     expect(container.textContent).not.toMatch(/raw body|invalid-shape|Axios|profile-access-value/)
@@ -494,9 +497,9 @@ describe('ProfileUpdateWorkflow', () => {
     const failure = new ApiError(classifyApiFailure(403, { detail: 'private-body' }))
     const update = vi.fn<ProfileApi['update']>(() => Promise.reject(failure))
     const user = userEvent.setup()
-    const { container, navigate, scope } = renderWorkflow({ update })
+    const { container, navigate, scope } = await renderWorkflow({ update })
 
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
     expect(navigate).toHaveBeenCalledWith('/forbidden')
     expect(container.textContent).not.toContain('private-body')
@@ -511,9 +514,9 @@ describe('ProfileUpdateWorkflow', () => {
       return request.promise
     })
     const user = userEvent.setup()
-    const port = renderWorkflow({ update })
+    const port = await renderWorkflow({ update })
 
-    await user.click(port.scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.click(port.scope.getByRole('button', { name: 'Guardar cambios' })) })
     const profileB: UserResponse = {
       ...PROFILE,
       uuid: ACCOUNT_B,
@@ -524,9 +527,11 @@ describe('ProfileUpdateWorkflow', () => {
       kind: 'success',
       data: profileB,
     })
-    port.sessionStore.getState().markDead()
-    authenticate(port.sessionStore, profileB)
-    port.render(profileB)
+    await act(async () => {
+      port.sessionStore.getState().markDead()
+      authenticate(port.sessionStore, profileB)
+      await port.render(profileB)
+    })
 
     expect(requestSignal?.aborted).toBe(true)
     await act(async () => {
@@ -554,11 +559,12 @@ describe('ProfileUpdateWorkflow', () => {
       return request.promise
     })
     const user = userEvent.setup()
-    const port = renderWorkflow({ update })
+    const port = await renderWorkflow({ update })
 
-    await user.click(port.scope.getByRole('button', { name: 'Guardar cambios' }))
-    act(() => {
+    await act(async () => { await user.click(port.scope.getByRole('button', { name: 'Guardar cambios' })) })
+    await act(async () => {
       port.root.unmount()
+      await Promise.resolve()
     })
     roots.splice(roots.indexOf(port.root), 1)
     expect(requestSignal?.aborted).toBe(true)
@@ -576,9 +582,9 @@ describe('ProfileUpdateWorkflow', () => {
   it('has no axe violations while pending', async () => {
     const request = deferred<MutationOutcome<UserResponse>>()
     const user = userEvent.setup()
-    const { container, scope } = renderWorkflow({ update: () => request.promise })
+    const { container, scope } = await renderWorkflow({ update: () => request.promise })
 
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
     const results = await axe.run(container, {
       rules: { 'color-contrast': { enabled: false } },
     })

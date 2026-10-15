@@ -14,10 +14,10 @@ export const userResponseSchema = z.strictObject({
 })
 
 export const paginatedUserResponseSchema = z.strictObject({
-  total_records: z.number().int(),
-  current_page: z.number().int(),
-  total_pages: z.number().int(),
-  page_size: z.number().int(),
+  total_records: z.number().int().min(0),
+  current_page: z.number().int().min(1).max(100_000),
+  total_pages: z.number().int().min(1),
+  page_size: z.number().int().min(1).max(50),
   data: z.array(userResponseSchema),
 })
 

@@ -1,0 +1,105 @@
+import { z } from 'zod'
+
+import {
+  paginatedUserResponseSchema,
+  userResponseSchema,
+  type PaginatedUserResponse,
+  type UserResponse,
+} from '../../contracts/schemas/user'
+import type {
+  ApiClient,
+  MutationOutcome,
+  ReadOutcome,
+} from '../../core/http/api-client'
+import { ApiError } from '../../core/http/errors'
+
+const USERS_TARGET = '/users'
+const SEARCH_TARGET = '/users/search'
+const SEARCH_KEYS = ['email'] as const
+const MAX_PAGE = 100_000
+const MAX_PAGE_SIZE = 50
+
+const searchRequestSchema = z.strictObject({
+  email: z.string().trim().toLowerCase().pipe(z.email()),
+})
+
+export interface UserPageParams {
+  readonly page: number
+  readonly size: number
+}
+
+export interface SearchNotFoundOutcome {
+  readonly kind: 'not-found'
+}
+
+export type SearchUsersOutcome =
+  | MutationOutcome<UserResponse>
+  | SearchNotFoundOutcome
+
+export interface UsersApiConfig {
+  readonly apiClient: Pick<ApiClient, 'read' | 'mutate'>
+}
+
+export interface UsersApi {
+  readonly list: (
+    params: UserPageParams,
+    signal?: AbortSignal,
+  ) => Promise<ReadOutcome<PaginatedUserResponse>>
+  readonly search: (
+    email: string,
+    signal?: AbortSignal,
+  ) => Promise<SearchUsersOutcome>
+}
+
+export function normalizePage(page: number): number {
+  if (!Number.isSafeInteger(page) || page < 1) return 1
+  return Math.min(MAX_PAGE, page)
+}
+
+export function normalizePageSize(size: number): number {
+  if (!Number.isSafeInteger(size) || size < 1) return 1
+  return Math.min(MAX_PAGE_SIZE, size)
+}
+
+export function normalizeSearchEmail(email: string): string {
+  return searchRequestSchema.parse({ email }).email
+}
+
+function isSearchNotFound(error: unknown): error is ApiError {
+  return (
+    error instanceof ApiError &&
+    error.failure.status === 404 &&
+    error.failure.kind === 'not-found'
+  )
+}
+
+export function createUsersApi(config: UsersApiConfig): UsersApi {
+  return {
+    list({ page, size }, signal) {
+      const normalizedPage = normalizePage(page)
+      const normalizedSize = normalizePageSize(size)
+      return config.apiClient.read({
+        target: `${USERS_TARGET}?page=${String(normalizedPage)}&size=${String(normalizedSize)}`,
+        schema: paginatedUserResponseSchema,
+        signal,
+      })
+    },
+    async search(email, signal) {
+      const source = { email: normalizeSearchEmail(email) }
+
+      try {
+        return await config.apiClient.mutate({
+          method: 'POST',
+          target: SEARCH_TARGET,
+          source,
+          allowedKeys: SEARCH_KEYS,
+          schema: userResponseSchema,
+          signal,
+        })
+      } catch (error: unknown) {
+        if (isSearchNotFound(error)) return { kind: 'not-found' }
+        throw error
+      }
+    },
+  }
+}

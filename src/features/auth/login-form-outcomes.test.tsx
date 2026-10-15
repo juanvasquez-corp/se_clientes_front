@@ -52,15 +52,16 @@ function createRealLoginPort() {
   }
 }
 
-function renderLoginForm() {
+async function renderLoginForm() {
   const port = createRealLoginPort()
   const container = document.createElement('div')
   const root = createRoot(container)
   roots.push(root)
   document.body.append(container)
 
-  act(() => {
+  await act(async () => {
     root.render(<LoginForm onSubmit={port.login} />)
+    await Promise.resolve()
   })
 
   return { container, ...port }
@@ -74,17 +75,18 @@ async function enterCredentials(user: ReturnType<typeof userEvent.setup>) {
     /^contraseña.*obligatorio/i,
   )
 
-  await user.type(email, '  ANA@Example.COM  ')
-  await user.type(password, PASSWORD)
-  await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+  await act(async () => { await user.type(email, '  ANA@Example.COM  ') })
+  await act(async () => { await user.type(password, PASSWORD) })
+  await act(async () => { await user.click(screen.getByRole('button', { name: 'Ingresar' })) })
 
   return { email, password }
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0)) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
 })
@@ -103,7 +105,7 @@ describe('LoginForm failure outcomes', () => {
       }),
     )
     const user = userEvent.setup()
-    renderLoginForm()
+    await renderLoginForm()
 
     const { email, password } = await enterCredentials(user)
     const feedback = await screen.findByRole('alert')
@@ -139,7 +141,7 @@ describe('LoginForm failure outcomes', () => {
         }),
       )
       const user = userEvent.setup()
-      const { container } = renderLoginForm()
+      const { container } = await renderLoginForm()
 
       const { email, password } = await enterCredentials(user)
       const feedback = await screen.findByRole('alert')
@@ -156,12 +158,12 @@ describe('LoginForm failure outcomes', () => {
       expect(requests).toBe(1)
 
       email.focus()
-      await user.click(retry)
+      await act(async () => { await user.click(retry) })
       expect(document.activeElement).toBe(password)
       expect(requests).toBe(1)
 
-      await user.type(password, 'new private password')
-      await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+      await act(async () => { await user.type(password, 'new private password') })
+      await act(async () => { await user.click(screen.getByRole('button', { name: 'Ingresar' })) })
       await waitFor(() => {
         expect(requests).toBe(2)
       })
@@ -183,7 +185,7 @@ describe('LoginForm failure outcomes', () => {
       ),
     )
     const user = userEvent.setup()
-    const { sessionStore } = renderLoginForm()
+    const { sessionStore } = await renderLoginForm()
 
     const { email, password } = await enterCredentials(user)
     const feedback = await screen.findByRole('alert')

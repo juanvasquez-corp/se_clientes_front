@@ -1,8 +1,17 @@
 import { defineConfig, devices } from '@playwright/test'
 import { tmpdir } from 'node:os'
 import { resolve } from 'node:path'
+import { loadEnvFile } from 'node:process'
 
 import { resolveE2EOrigins } from './src/test/e2e-origins'
+
+try {
+  loadEnvFile()
+} catch (error: unknown) {
+  if (!(error instanceof Error) || !('code' in error) || error.code !== 'ENOENT') {
+    throw error
+  }
+}
 
 const e2eOrigins = resolveE2EOrigins(process.env)
 const frontendHostname = new URL(e2eOrigins.frontendOrigin).hostname
@@ -14,7 +23,8 @@ export default defineConfig({
   forbidOnly: true,
   retries: 0,
   workers: 1,
-  reporter: 'line',
+  // Los errores crudos de Playwright pueden contener valores de inputs y del DOM.
+  reporter: [['./src/test/e2e-safe-reporter.ts']],
   outputDir: resolve(tmpdir(), 'frontend-project-playwright'),
   preserveOutput: 'never',
   use: {

@@ -13,17 +13,18 @@ import { LogoutDialog } from './logout-dialog'
 
 const roots: ReturnType<typeof createRoot>[] = []
 
-function renderDialog(controller: LogoutController) {
+async function renderDialog(controller: LogoutController) {
   const container = document.createElement('main')
   const root = createRoot(container)
   roots.push(root)
   document.body.append(container)
-  act(() => {
+  await act(async () => {
     root.render(
       <StrictMode>
         <LogoutDialog controller={controller} />
       </StrictMode>,
     )
+    await Promise.resolve()
   })
   return container
 }
@@ -32,10 +33,11 @@ function controllerWith(logout: () => Promise<LogoutResult>): LogoutController {
   return { logout }
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0)) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
 })
@@ -46,15 +48,15 @@ describe('LogoutDialog', () => {
     async (action) => {
       const logout = vi.fn(() => Promise.resolve({ kind: 'logged-out' } as const))
       const user = userEvent.setup()
-      renderDialog(controllerWith(logout))
+      await renderDialog(controllerWith(logout))
       const trigger = screen.getByRole('button', { name: 'Cerrar sesión' })
 
-      await user.click(trigger)
+      await act(async () => { await user.click(trigger) })
       const dialog = screen.getByRole('dialog', { name: 'Cerrar sesión' })
       if (action === 'cancel') {
-        await user.click(within(dialog).getByRole('button', { name: 'Cancelar' }))
+        await act(async () => { await user.click(within(dialog).getByRole('button', { name: 'Cancelar' })) })
       } else {
-        await user.keyboard('{Escape}')
+        await act(async () => { await user.keyboard('{Escape}') })
       }
 
       expect(screen.queryByRole('dialog')).toBeNull()
@@ -72,13 +74,13 @@ describe('LogoutDialog', () => {
         }),
     )
     const user = userEvent.setup()
-    renderDialog(controllerWith(logout))
-    await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
+    await renderDialog(controllerWith(logout))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Cerrar sesión' })) })
     const dialog = screen.getByRole('dialog')
 
-    await user.dblClick(
-      within(dialog).getByRole('button', { name: 'Cerrar sesión' }),
-    )
+    await act(async () => {
+      await user.dblClick(within(dialog).getByRole('button', { name: 'Cerrar sesión' }))
+    })
 
     expect(logout).toHaveBeenCalledOnce()
     expect(
@@ -86,7 +88,7 @@ describe('LogoutDialog', () => {
         name: 'Cerrando sesión...',
       }).disabled,
     ).toBe(true)
-    await user.keyboard('{Enter}')
+    await act(async () => { await user.keyboard('{Enter}') })
     expect(logout).toHaveBeenCalledOnce()
     await act(async () => {
       resolveLogout?.({ kind: 'logged-out' })
@@ -101,13 +103,13 @@ describe('LogoutDialog', () => {
       .mockResolvedValueOnce({ kind: 'unavailable' })
       .mockResolvedValueOnce({ kind: 'logged-out' })
     const user = userEvent.setup()
-    const container = renderDialog(controllerWith(logout))
-    await user.click(screen.getByRole('button', { name: 'Cerrar sesión' }))
+    const container = await renderDialog(controllerWith(logout))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Cerrar sesión' })) })
     const dialog = screen.getByRole('dialog')
 
-    await user.click(
-      within(dialog).getByRole('button', { name: 'Cerrar sesión' }),
-    )
+    await act(async () => {
+      await user.click(within(dialog).getByRole('button', { name: 'Cerrar sesión' }))
+    })
 
     expect(logout).toHaveBeenCalledOnce()
     expect(within(dialog).getByRole('alert').textContent).toContain(
@@ -121,7 +123,7 @@ describe('LogoutDialog', () => {
     })
     expect(results.violations).toEqual([])
 
-    await user.click(retry)
+    await act(async () => { await user.click(retry) })
     await waitFor(() => {
       expect(logout).toHaveBeenCalledTimes(2)
       expect(screen.queryByRole('dialog')).toBeNull()

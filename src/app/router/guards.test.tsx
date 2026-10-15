@@ -12,11 +12,15 @@ import {
   type SessionStore,
 } from '../../core/session/session-store'
 import { createProfileApiStub } from '../../test/profile-api-stub'
+import { createUsersApiStub } from '../../test/users-api-stub'
 import { createAppRouter } from './router'
 import type { AppRouterContext } from './router-context'
 import { AppProviders } from '../providers'
 
 const roots: Root[] = []
+const routers: ReturnType<typeof createAppRouter>[] = []
+const lazyPaths = ['/users', '/users/new', '/users/$userUuid', '/users/$userUuid/edit', '/profile', '/login', '/forbidden', '/unavailable'] as const
+const preloadedPaths: string[] = []
 const USER_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
 
 function identityFor(role: UserRole): SessionIdentity {
@@ -70,6 +74,7 @@ function createGuardTestRouter({
       login: () => Promise.resolve({ kind: 'technical' }),
       logoutController: { logout: () => Promise.resolve({ kind: 'logged-out' }) },
       profileApi: createProfileApiStub(),
+      usersApi: createUsersApiStub(),
       createSecurityRecoveryController: () => ({
         operation: 'refresh',
         restoreProtection: () => Promise.resolve({ kind: 'restored' }),
@@ -83,13 +88,40 @@ function createGuardTestRouter({
     },
   }
   const history = createMemoryHistory({ initialEntries: [initialEntry] })
+  const router = createAppRouter({ context, history })
+  routers.push(router)
   return {
     history,
     restoreInitial,
-    router: createAppRouter({ context, history }),
+    router,
     store,
   }
 }
+
+function disposeRouters() {
+  for (const router of routers.splice(0)) {
+    router.history.destroy()
+    router.options.context.queryClient.clear()
+  }
+}
+
+async function preloadComponents() {
+  const { router } = createGuardTestRouter({ initialEntry: '/login' })
+  try {
+    for (const path of lazyPaths) {
+      const component = router.routesById[path].options.component
+      if (component === undefined || typeof component.preload !== 'function') {
+        throw new Error(`Expected preloadable ${path} component.`)
+      }
+      await component.preload()
+      preloadedPaths.push(path)
+    }
+  } finally {
+    disposeRouters()
+  }
+}
+
+await preloadComponents()
 
 async function loadPath(
   initialEntry: string,
@@ -102,18 +134,19 @@ async function loadPath(
   return testRouter
 }
 
-afterEach(() => {
-  for (const root of roots.splice(0)) {
-    act(() => {
-      root.unmount()
-    })
-  }
+afterEach(async () => {
+  await act(async () => {
+    for (const root of roots.splice(0)) root.unmount()
+    await Promise.all(routers.map((router) => router.options.context.queryClient.cancelQueries()))
+  })
+  disposeRouters()
   vi.restoreAllMocks()
   document.body.replaceChildren()
 })
 
 describe('private route guards', () => {
   it('waits for the shared restore promise and never renders private content early', async () => {
+    expect(preloadedPaths).toEqual(lazyPaths)
     const deferred = createDeferred<'authenticated'>()
     const store = createSessionStore()
     const restoreInitial = vi.fn(() => deferred.promise)
@@ -128,7 +161,7 @@ describe('private route guards', () => {
     const root = createRoot(container)
     roots.push(root)
 
-    act(() => {
+    await act(async () => {
       root.render(
         <StrictMode>
           <AppProviders queryClient={router.options.context.queryClient}>
@@ -136,21 +169,21 @@ describe('private route guards', () => {
           </AppProviders>
         </StrictMode>,
       )
-    })
-    await act(async () => {
       await Promise.resolve()
     })
 
     expect(restoreInitial).toHaveBeenCalledTimes(1)
     expect(screen.queryByLabelText('Usuarios pendiente')).toBeNull()
 
-    authenticate(store, 'superadmin')
     await act(async () => {
+      authenticate(store, 'superadmin')
       deferred.resolve('authenticated')
       await router.load()
     })
 
-    expect(await screen.findByLabelText('Usuarios pendiente')).toBeDefined()
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Gestión de usuarios' }),
+    ).toBeDefined()
     expect(restoreInitial).toHaveBeenCalledTimes(1)
   })
 

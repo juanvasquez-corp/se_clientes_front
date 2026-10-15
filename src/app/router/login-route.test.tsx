@@ -15,12 +15,19 @@ import {
 } from '../../core/session/session-store'
 import type { LoginInput } from '../../features/auth/login-schema'
 import { createProfileApiStub } from '../../test/profile-api-stub'
+import { createUsersApiStub } from '../../test/users-api-stub'
 import './login-route'
 import { createAppRouter } from './router'
 import type { AppRouterContext } from './router-context'
 import { AppProviders } from '../providers'
 
 const roots: Root[] = []
+const fixtures: {
+  history: ReturnType<typeof createMemoryHistory>
+  router: ReturnType<typeof createAppRouter>
+  unsubscribe: () => void
+}[] = []
+const preloadedDestinations: string[] = []
 const USER_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
 
 function identityFor(role: UserRole): SessionIdentity {
@@ -70,6 +77,7 @@ function createLoginRouter({
       login,
       logoutController: { logout: () => Promise.resolve({ kind: 'logged-out' }) },
       profileApi: createProfileApiStub(),
+      usersApi: createUsersApiStub(),
       createSecurityRecoveryController: () => ({
         operation: 'refresh',
         restoreProtection: () => Promise.resolve({ kind: 'restored' }),
@@ -84,8 +92,45 @@ function createLoginRouter({
   }
   const history = createMemoryHistory({ initialEntries: [initialEntry] })
   const router = createAppRouter({ context, history })
-  return { history, login, router }
+  const renderedPaths: string[] = []
+  const unsubscribe = router.subscribe('onRendered', ({ toLocation }) => {
+    renderedPaths.push(toLocation.pathname)
+  })
+  fixtures.push({ history, router, unsubscribe })
+  return { history, login, router, renderedPaths }
 }
+
+function disposeFixtures() {
+  for (const { history, router, unsubscribe } of fixtures.splice(0)) {
+    unsubscribe()
+    history.destroy()
+    router.options.context.queryClient.clear()
+  }
+}
+
+async function preloadDestinationComponents(): Promise<void> {
+  const { router } = createLoginRouter({ initialEntry: '/login', role: 'superadmin' })
+  try {
+    for (const path of ['/login', '/profile', '/users'] as const) {
+      const component = router.routesById[path].options.component
+      if (component === undefined || typeof component.preload !== 'function') {
+        throw new Error(`Expected preloadable ${path} component.`)
+      }
+      const preload = vi.spyOn(component, 'preload')
+      try {
+        await component.preload()
+        if (preload.mock.calls.length === 1) preloadedDestinations.push(path)
+      } finally {
+        preload.mockRestore()
+      }
+    }
+  } finally {
+    disposeFixtures()
+  }
+}
+
+// Preparación de módulos, sin ejecutar guards ni sembrar datos remotos.
+await preloadDestinationComponents()
 
 async function renderRouter(router: ReturnType<typeof createAppRouter>) {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
@@ -93,8 +138,8 @@ async function renderRouter(router: ReturnType<typeof createAppRouter>) {
   document.body.append(container)
   const root = createRoot(container)
   roots.push(root)
-  await router.load()
-  act(() => {
+  await act(async () => {
+    await router.load()
     root.render(
       <StrictMode>
         <AppProviders queryClient={router.options.context.queryClient}>
@@ -105,13 +150,22 @@ async function renderRouter(router: ReturnType<typeof createAppRouter>) {
   })
 }
 
-afterEach(() => {
-  for (const root of roots.splice(0)) {
-    act(() => {
-      root.unmount()
+afterEach(async () => {
+  try {
+    for (const { router } of fixtures) {
+      expect(router.state.status).toBe('idle')
+      expect(router.state.isLoading).toBe(false)
+    }
+  } finally {
+    await act(async () => {
+      for (const root of roots.splice(0)) root.unmount()
+      await Promise.all(fixtures.map(({ router }) =>
+        router.options.context.queryClient.cancelQueries(),
+      ))
     })
+    disposeFixtures()
+    vi.restoreAllMocks()
   }
-  vi.restoreAllMocks()
 })
 
 describe('login route integration', () => {
@@ -120,7 +174,7 @@ describe('login route integration', () => {
     ['master', '/profile'],
     ['visualizer', '/profile'],
   ] as const)('navigates validated %s login exactly once to %s', async (role, home) => {
-    const { login, router } = createLoginRouter({
+    const { login, router, renderedPaths } = createLoginRouter({
       initialEntry: '/login?returnTo=https%3A%2F%2Fevil.example#ignored',
       role,
     })
@@ -128,18 +182,23 @@ describe('login route integration', () => {
     await renderRouter(router)
     const user = userEvent.setup()
 
-    await user.type(
-      await screen.findByRole('textbox', { name: /correo electrónico/i }),
-      'ana@example.com',
-    )
-    await user.type(screen.getByLabelText(/^contraseña.*obligatorio/i), 'password')
-    await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+    await act(async () => {
+      await user.type(
+        screen.getByRole('textbox', { name: /correo electrónico/i }),
+        'ana@example.com',
+      )
+      await user.type(screen.getByLabelText(/^contraseña.*obligatorio/i), 'password')
+      await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+    })
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe(home)
     })
     expect(login).toHaveBeenCalledTimes(1)
     expect(navigate).toHaveBeenCalledTimes(1)
+    expect(router.state.status).toBe('idle')
+    expect(router.state.resolvedLocation?.pathname).toBe(home)
+    expect(renderedPaths.at(-1)).toBe(home)
     expect(router.state.location.search).toEqual({})
     expect(router.state.location.hash).toBe('')
   })
@@ -167,7 +226,8 @@ describe('login route integration', () => {
   })
 
   it('does not flash the login form for an existing authenticated session', async () => {
-    const { router } = createLoginRouter({
+    expect(preloadedDestinations).toEqual(['/login', '/profile', '/users'])
+    const { router, renderedPaths } = createLoginRouter({
       initialEntry: '/login?next=/profile',
       role: 'superadmin',
       existingSession: true,
@@ -177,5 +237,7 @@ describe('login route integration', () => {
 
     expect(screen.queryByRole('form', { name: 'Inicio de sesión' })).toBeNull()
     expect(router.state.location.pathname).toBe('/users')
+    expect(router.state.resolvedLocation?.pathname).toBe('/users')
+    expect(renderedPaths.at(-1)).toBe('/users')
   })
 })

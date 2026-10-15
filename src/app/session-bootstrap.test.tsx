@@ -11,13 +11,14 @@ import { SessionBootstrap } from './session-bootstrap'
 
 const roots: Root[] = []
 
-function renderBootstrap(element: React.ReactNode) {
+async function renderBootstrap(element: React.ReactNode) {
   const container = document.createElement('div')
   const root = createRoot(container)
   roots.push(root)
   document.body.append(container)
-  act(() => {
+  await act(async () => {
     root.render(element)
+    await Promise.resolve()
   })
   return { container, root }
 }
@@ -29,16 +30,17 @@ function coordinatorStub(
   return { restoreInitial, retryInitial, cancelInitial: vi.fn() }
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0)) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
 })
 
 describe('SessionBootstrap', () => {
-  it('announces restoration and never mounts private children while unknown', () => {
+  it('announces restoration and never mounts private children while unknown', async () => {
     const sessionStore = createSessionStore()
     const coordinator = coordinatorStub(() => new Promise(() => undefined))
     const privateMount = vi.fn()
@@ -47,7 +49,7 @@ describe('SessionBootstrap', () => {
       return <p>Contenido privado</p>
     }
 
-    renderBootstrap(
+    await renderBootstrap(
       <SessionBootstrap coordinator={coordinator} sessionStore={sessionStore}>
         <PrivateContent />
       </SessionBootstrap>,
@@ -84,7 +86,7 @@ describe('SessionBootstrap', () => {
       return <p>Contenido privado</p>
     }
 
-    renderBootstrap(
+    await renderBootstrap(
       <StrictMode>
         <SessionBootstrap
           coordinator={coordinatorStub(restoreInitial)}
@@ -128,7 +130,7 @@ describe('SessionBootstrap', () => {
       return <p>Contenido privado</p>
     }
 
-    renderBootstrap(
+    await renderBootstrap(
       <SessionBootstrap
         coordinator={coordinatorStub(restoreInitial)}
         sessionStore={sessionStore}
@@ -156,14 +158,14 @@ describe('SessionBootstrap', () => {
     )
     const user = userEvent.setup()
 
-    renderBootstrap(
+    await renderBootstrap(
       <SessionBootstrap coordinator={coordinator} sessionStore={sessionStore}>
         <p>Contenido privado</p>
       </SessionBootstrap>,
     )
 
     expect(screen.queryByText('Contenido privado')).toBeNull()
-    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Reintentar' })) })
 
     expect(retryInitial).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('button', { name: 'Reintentar' })).toBeNull()
@@ -178,18 +180,19 @@ describe('SessionBootstrap', () => {
       useEffect(privateMount, [])
       return <p>Contenido privado</p>
     }
-    const { root } = renderBootstrap(
+    const { root } = await renderBootstrap(
       <SessionBootstrap coordinator={coordinator} sessionStore={sessionStore}>
         <PrivateContent />
       </SessionBootstrap>,
     )
 
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
     roots.splice(roots.indexOf(root), 1)
     await Promise.resolve()
-    act(() => {
+    await act(async () => {
       sessionStore.getState().acceptTokens({
         accessToken: 'late-access',
         tokenType: 'bearer',
@@ -205,6 +208,7 @@ describe('SessionBootstrap', () => {
         role: 'master',
         isActive: true,
       })
+      await Promise.resolve()
     })
 
     expect(privateMount).not.toHaveBeenCalled()
@@ -214,14 +218,14 @@ describe('SessionBootstrap', () => {
   it('has no axe violations while restoration is unavailable', async () => {
     const sessionStore = createSessionStore()
     sessionStore.getState().markRestorationUnavailable()
-    const container = renderBootstrap(
+    const { container } = await renderBootstrap(
       <SessionBootstrap
         coordinator={coordinatorStub(() => Promise.resolve('unavailable'))}
         sessionStore={sessionStore}
       >
         <p>Contenido privado</p>
       </SessionBootstrap>,
-    ).container
+    )
 
     const results = await axe.run(container, {
       rules: { 'color-contrast': { enabled: false } },

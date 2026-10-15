@@ -30,6 +30,7 @@ export function createBrowserApplication(
       login: runtime.login,
       logoutController: runtime.logoutController,
       profileApi: runtime.profileApi,
+      usersApi: runtime.usersApi,
       createSecurityRecoveryController: runtime.createSecurityRecoveryController,
     },
   }

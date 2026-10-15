@@ -18,8 +18,12 @@ import { createAppRouter } from '../../app/router/router'
 import type { AppRouterContext } from '../../app/router/router-context'
 import { AppProviders } from '../../app/providers'
 import { createProfileApiStub } from '../../test/profile-api-stub'
+import { createUsersApiStub } from '../../test/users-api-stub'
 
 const roots: Root[] = []
+const routers: ReturnType<typeof createAppRouter>[] = []
+const lazyPaths = ['/users', '/users/new', '/users/$userUuid', '/users/$userUuid/edit', '/profile'] as const
+const preloadedPaths: string[] = []
 const USER_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
 
 function identityFor(role: UserRole): SessionIdentity {
@@ -54,6 +58,7 @@ function createShellRouter(role: UserRole, initialEntry: string) {
       login: () => Promise.resolve({ kind: 'technical' }),
       logoutController: { logout },
       profileApi: createProfileApiStub(),
+      usersApi: createUsersApiStub(),
       createSecurityRecoveryController: () => ({
         operation: 'refresh',
         restoreProtection: () => Promise.resolve({ kind: 'restored' }),
@@ -70,8 +75,34 @@ function createShellRouter(role: UserRole, initialEntry: string) {
     context,
     history: createMemoryHistory({ initialEntries: [initialEntry] }),
   })
+  routers.push(router)
   return { logout, router }
 }
+
+function disposeRouters() {
+  for (const router of routers.splice(0)) {
+    router.history.destroy()
+    router.options.context.queryClient.clear()
+  }
+}
+
+async function preloadComponents() {
+  const { router } = createShellRouter('superadmin', '/users')
+  try {
+    for (const path of lazyPaths) {
+      const component = router.routesById[path].options.component
+      if (component === undefined || typeof component.preload !== 'function') {
+        throw new Error(`Expected preloadable ${path} component.`)
+      }
+      await component.preload()
+      preloadedPaths.push(path)
+    }
+  } finally {
+    disposeRouters()
+  }
+}
+
+await preloadComponents()
 
 async function renderShell(role: UserRole, initialEntry: string) {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
@@ -81,6 +112,7 @@ async function renderShell(role: UserRole, initialEntry: string) {
   const root = createRoot(container)
   roots.push(root)
   await act(async () => {
+    await router.load()
     root.render(
       <StrictMode>
         <AppProviders queryClient={router.options.context.queryClient}>
@@ -88,17 +120,16 @@ async function renderShell(role: UserRole, initialEntry: string) {
         </AppProviders>
       </StrictMode>,
     )
-    await router.load()
   })
   return { container, logout, router }
 }
 
-afterEach(() => {
-  for (const root of roots.splice(0)) {
-    act(() => {
-      root.unmount()
-    })
-  }
+afterEach(async () => {
+  await act(async () => {
+    for (const root of roots.splice(0)) root.unmount()
+    await Promise.all(routers.map((router) => router.options.context.queryClient.cancelQueries()))
+  })
+  disposeRouters()
   vi.restoreAllMocks()
 })
 
@@ -116,6 +147,7 @@ describe('private AppShell navigation', () => {
   })
 
   it('renders the exact superadmin menu and active users module', async () => {
+    expect(preloadedPaths).toEqual(lazyPaths)
     await renderShell('superadmin', '/users/new')
     const navigation = screen.getByRole('navigation', { name: 'Navegación principal' })
 
@@ -171,7 +203,7 @@ describe('private AppShell navigation', () => {
     const trigger = screen.getByRole('button', { name: 'Cerrar sesión' })
 
     expect(trigger.closest('a')).toBeNull()
-    await user.click(trigger)
+    await act(async () => { await user.click(trigger) })
 
     expect(screen.getByRole('dialog', { name: 'Cerrar sesión' })).toBeDefined()
     expect(logout).not.toHaveBeenCalled()
@@ -188,11 +220,11 @@ describe('private AppShell navigation', () => {
     expect(document.body.textContent).not.toContain('ana.torres@example.com')
     expect(document.body.textContent).not.toContain(USER_UUID)
 
-    await user.tab()
+    await act(async () => { await user.tab() })
     expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Usuarios' }))
-    await user.tab()
+    await act(async () => { await user.tab() })
     expect(document.activeElement).toBe(screen.getByRole('link', { name: 'Mi perfil' }))
-    await user.tab()
+    await act(async () => { await user.tab() })
     expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cerrar sesión' }))
 
     const results = await axe.run(container, {

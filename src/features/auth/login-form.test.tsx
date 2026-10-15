@@ -23,7 +23,7 @@ const AUTHENTICATED_OUTCOME = {
   },
 } as const satisfies LoginOutcome
 
-function renderLoginForm(
+async function renderLoginForm(
   onSubmit: (input: LoginInput) => Promise<LoginOutcome> = vi.fn(() =>
     Promise.resolve(AUTHENTICATED_OUTCOME),
   ),
@@ -33,24 +33,26 @@ function renderLoginForm(
   roots.push(root)
   document.body.append(container)
 
-  act(() => {
+  await act(async () => {
     root.render(<LoginForm onSubmit={onSubmit} />)
+    await Promise.resolve()
   })
 
   return { container, onSubmit }
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0)) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
 })
 
 describe('LoginForm', () => {
-  it('renders only the allowed, persistently labelled login controls', () => {
-    renderLoginForm()
+  it('renders only the allowed, persistently labelled login controls', async () => {
+    await renderLoginForm()
     const email = screen.getByRole<HTMLInputElement>('textbox', {
       name: /correo electrónico.*obligatorio/i,
     })
@@ -70,17 +72,17 @@ describe('LoginForm', () => {
 
   it('reveals the password only on explicit accessible request', async () => {
     const user = userEvent.setup()
-    renderLoginForm()
+    await renderLoginForm()
     const password = screen.getByLabelText<HTMLInputElement>(
       /contraseña.*obligatorio/i,
     )
     const secret = ' contraseña privada '
 
-    await user.type(password, secret)
+    await act(async () => { await user.type(password, secret) })
     const reveal = screen.getByRole('button', { name: 'Mostrar contraseña' })
     expect(reveal.getAttribute('aria-pressed')).toBe('false')
 
-    await user.click(reveal)
+    await act(async () => { await user.click(reveal) })
 
     expect(password.type).toBe('text')
     expect(password.value).toBe(secret)
@@ -94,9 +96,9 @@ describe('LoginForm', () => {
 
   it('announces validation errors, focuses the first invalid field and never submits', async () => {
     const user = userEvent.setup()
-    const { onSubmit } = renderLoginForm()
+    const { onSubmit } = await renderLoginForm()
 
-    await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Ingresar' })) })
 
     const email = screen.getByRole<HTMLInputElement>('textbox', {
       name: /correo electrónico.*obligatorio/i,
@@ -112,13 +114,13 @@ describe('LoginForm', () => {
 
   it('rejects invalid email and passwords over 128 characters before submit', async () => {
     const user = userEvent.setup()
-    const { onSubmit } = renderLoginForm()
+    const { onSubmit } = await renderLoginForm()
     const email = screen.getByRole('textbox', { name: /correo electrónico/i })
     const password = screen.getByLabelText(/^contraseña.*obligatorio/i)
 
-    await user.type(email, 'correo-invalido')
-    await user.type(password, 'a'.repeat(129))
-    await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+    await act(async () => { await user.type(email, 'correo-invalido') })
+    await act(async () => { await user.type(password, 'a'.repeat(129)) })
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Ingresar' })) })
 
     expect(
       await screen.findByText('Ingresa un correo electrónico válido.'),
@@ -139,14 +141,14 @@ describe('LoginForm', () => {
         }),
     )
     const user = userEvent.setup()
-    renderLoginForm(onSubmit)
+    await renderLoginForm(onSubmit)
     const email = screen.getByRole('textbox', { name: /correo electrónico/i })
     const password = screen.getByLabelText(/^contraseña.*obligatorio/i)
 
-    await user.type(email, '  ANA@Example.COM  ')
-    await user.type(password, 'private password')
+    await act(async () => { await user.type(email, '  ANA@Example.COM  ') })
+    await act(async () => { await user.type(password, 'private password') })
     const submit = screen.getByRole<HTMLButtonElement>('button', { name: 'Ingresar' })
-    await user.click(submit)
+    await act(async () => { await user.click(submit) })
 
     await waitFor(() => {
       expect(onSubmit).toHaveBeenCalledTimes(1)
@@ -161,9 +163,9 @@ describe('LoginForm', () => {
     )
     expect(screen.getByRole('form').getAttribute('aria-busy')).toBe('true')
 
-    await user.click(submit)
+    await act(async () => { await user.click(submit) })
     password.focus()
-    await user.keyboard('{Enter}')
+    await act(async () => { await user.keyboard('{Enter}') })
     expect(onSubmit).toHaveBeenCalledTimes(1)
 
     await act(async () => {
@@ -177,9 +179,9 @@ describe('LoginForm', () => {
 
   it('has no detectable axe violations with validation feedback', async () => {
     const user = userEvent.setup()
-    const { container } = renderLoginForm()
+    const { container } = await renderLoginForm()
 
-    await user.click(screen.getByRole('button', { name: 'Ingresar' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Ingresar' })) })
     await screen.findByText('Ingresa tu correo electrónico.')
     const results = await axe.run(container, {
       rules: { 'color-contrast': { enabled: false } },

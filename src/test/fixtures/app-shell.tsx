@@ -9,6 +9,7 @@ import { AppProviders } from '../../app/providers'
 import { userRoleSchema } from '../../contracts/schemas/user'
 import { createSessionStore } from '../../core/session/session-store'
 import { createProfileApiStub } from '../profile-api-stub'
+import { createUsersApiStub } from '../users-api-stub'
 import '../../styles/app.css'
 
 const rootElement = document.getElementById('fixture-root')
@@ -67,6 +68,7 @@ const context: AppRouterContext = {
       logout: () => Promise.resolve({ kind: 'unavailable' }),
     },
     profileApi: createProfileApiStub(),
+    usersApi: createUsersApiStub(),
     createSecurityRecoveryController: () => ({
       operation: 'refresh',
       restoreProtection: () => Promise.resolve({ kind: 'restored' }),

@@ -25,7 +25,7 @@ const PROFILE: UserResponse = {
 
 const roots: ReturnType<typeof createRoot>[] = []
 
-function renderForm({
+async function renderForm({
   controllerRef,
   onSubmit = vi.fn<(payload: ProfileUpdate) => void>(),
   profile = PROFILE,
@@ -39,7 +39,7 @@ function renderForm({
   roots.push(root)
   document.body.append(container)
 
-  act(() => {
+  await act(async () => {
     root.render(
       <ProfileContent
         profile={profile}
@@ -53,15 +53,17 @@ function renderForm({
         }
       />,
     )
+    await Promise.resolve()
   })
 
   return { container, onSubmit, scope: within(container) }
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0)) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
 })
@@ -69,8 +71,8 @@ afterEach(() => {
 describe('ProfileForm', () => {
   it.each(['master', 'superadmin'] as const)(
     'renders exactly four editable profile controls for %s',
-    (role) => {
-      const { container, scope } = renderForm({ profile: { ...PROFILE, rol: role } })
+    async (role) => {
+      const { container, scope } = await renderForm({ profile: { ...PROFILE, rol: role } })
       const controls = container.querySelectorAll('input, select, textarea')
       const name = scope.getByRole<HTMLInputElement>('textbox', {
         name: /nombre.*obligatorio/i,
@@ -107,8 +109,8 @@ describe('ProfileForm', () => {
     },
   )
 
-  it('shows null optional values as empty editable controls', () => {
-    const { scope } = renderForm({
+  it('shows null optional values as empty editable controls', async () => {
+    const { scope } = await renderForm({
       profile: { ...PROFILE, last_name: null, phone_number: null },
     })
 
@@ -121,9 +123,9 @@ describe('ProfileForm', () => {
     async (role) => {
       const user = userEvent.setup()
       const onSubmit = vi.fn<(payload: ProfileUpdate) => void>()
-      const { scope } = renderForm({ onSubmit, profile: { ...PROFILE, rol: role } })
+      const { scope } = await renderForm({ onSubmit, profile: { ...PROFILE, rol: role } })
 
-      await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+      await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
       expect(onSubmit).toHaveBeenCalledWith({
         name: 'Ana María',
@@ -143,20 +145,20 @@ describe('ProfileForm', () => {
   it('normalizes submitted values and sends deliberate optional clears as null', async () => {
     const user = userEvent.setup()
     const onSubmit = vi.fn<(payload: ProfileUpdate) => void>()
-    const { scope } = renderForm({ onSubmit })
+    const { scope } = await renderForm({ onSubmit })
     const name = scope.getByRole('textbox', { name: /nombre.*obligatorio/i })
     const lastName = scope.getByRole('textbox', { name: /^apellido/i })
     const phone = scope.getByRole('textbox', { name: /^teléfono/i })
     const email = scope.getByRole('textbox', { name: /correo electrónico.*obligatorio/i })
 
-    await user.clear(name)
-    await user.type(name, '  Bea  ')
-    await user.clear(lastName)
-    await user.type(lastName, '   ')
-    await user.clear(phone)
-    await user.clear(email)
-    await user.type(email, '  BEA@Example.COM  ')
-    await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+    await act(async () => { await user.clear(name) })
+    await act(async () => { await user.type(name, '  Bea  ') })
+    await act(async () => { await user.clear(lastName) })
+    await act(async () => { await user.type(lastName, '   ') })
+    await act(async () => { await user.clear(phone) })
+    await act(async () => { await user.clear(email) })
+    await act(async () => { await user.type(email, '  BEA@Example.COM  ') })
+    await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
     expect(onSubmit).toHaveBeenCalledWith({
       name: 'Bea',
@@ -178,12 +180,12 @@ describe('ProfileForm', () => {
     async (field, value, accessibleName) => {
       const user = userEvent.setup()
       const onSubmit = vi.fn<(payload: ProfileUpdate) => void>()
-      const { container, scope } = renderForm({ onSubmit })
+      const { container, scope } = await renderForm({ onSubmit })
       const control = scope.getByRole<HTMLInputElement>('textbox', { name: accessibleName })
 
-      await user.clear(control)
-      if (value !== '') await user.type(control, value)
-      await user.click(scope.getByRole('button', { name: 'Guardar cambios' }))
+      await act(async () => { await user.clear(control) })
+      if (value !== '') await act(async () => { await user.type(control, value) })
+      await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
       const error = container.querySelector(`#profile-${field.replace('_', '-')}-error`)
       if (error === null) throw new Error(`Expected validation error for ${field}.`)
@@ -199,22 +201,23 @@ describe('ProfileForm', () => {
   it('exposes a typed reset controller for workflow cancellation', async () => {
     const user = userEvent.setup()
     const controllerRef = createRef<ProfileFormController>()
-    const { scope } = renderForm({ controllerRef })
+    const { scope } = await renderForm({ controllerRef })
     const name = scope.getByRole<HTMLInputElement>('textbox', { name: /nombre.*obligatorio/i })
 
-    await user.clear(name)
-    await user.type(name, 'Cambio local')
-    act(() => {
+    await act(async () => { await user.clear(name) })
+    await act(async () => { await user.type(name, 'Cambio local') })
+    await act(async () => {
       controllerRef.current?.reset({ ...PROFILE, name: 'Confirmado' })
+      await Promise.resolve()
     })
 
     expect(name.value).toBe('Confirmado')
     expect(scope.getByRole('button', { name: 'Cancelar' })).toBeTruthy()
   })
 
-  it('never mounts a form for visualizer even when an editable form slot is supplied', () => {
+  it('never mounts a form for visualizer even when an editable form slot is supplied', async () => {
     const onSubmit = vi.fn<(payload: ProfileUpdate) => void>()
-    const { container } = renderForm({
+    const { container } = await renderForm({
       onSubmit,
       profile: { ...PROFILE, rol: 'visualizer' },
     })
@@ -225,7 +228,7 @@ describe('ProfileForm', () => {
   })
 
   it('has no axe violations with role and status remaining informative', async () => {
-    const { container } = renderForm()
+    const { container } = await renderForm()
 
     const results = await axe.run(container, {
       rules: { 'color-contrast': { enabled: false } },

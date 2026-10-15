@@ -25,35 +25,37 @@ function controllerStub({
   return { operation, restoreProtection, retryOriginal }
 }
 
-function renderPanel(controller: SecurityRecoveryController) {
+async function renderPanel(controller: SecurityRecoveryController) {
   const container = document.createElement('main')
   const root = createRoot(container)
   roots.push(root)
   document.body.append(container)
-  act(() => {
+  await act(async () => {
     root.render(
       <StrictMode>
         <SecurityRecoveryPanel controller={controller} />
       </StrictMode>,
     )
+    await Promise.resolve()
   })
   return container
 }
 
-afterEach(() => {
+afterEach(async () => {
   for (const root of roots.splice(0)) {
-    act(() => {
+    await act(async () => {
       root.unmount()
+      await Promise.resolve()
     })
   }
 })
 
 describe('SecurityRecoveryPanel', () => {
-  it('shows only a generic quarantine message and never starts recovery on mount', () => {
+  it('shows only a generic quarantine message and never starts recovery on mount', async () => {
     const restoreProtection = vi.fn(() =>
       Promise.resolve({ kind: 'restored' } as const),
     )
-    const container = renderPanel(controllerStub({ restoreProtection }))
+    const container = await renderPanel(controllerStub({ restoreProtection }))
 
     expect(screen.getByText('No pudimos verificar la protección de tu sesión.')).toBeTruthy()
     expect(
@@ -75,11 +77,11 @@ describe('SecurityRecoveryPanel', () => {
       Promise.resolve({ kind: 'dispatched' } as const),
     )
     const user = userEvent.setup()
-    renderPanel(controllerStub({ restoreProtection, retryOriginal }))
+    await renderPanel(controllerStub({ restoreProtection, retryOriginal }))
 
-    await user.dblClick(
+    await act(async () => { await user.dblClick(
       screen.getByRole('button', { name: 'Restablecer protección' }),
-    )
+    ) })
     expect(restoreProtection).toHaveBeenCalledOnce()
     expect(
       screen.getByRole<HTMLButtonElement>('button', {
@@ -95,7 +97,7 @@ describe('SecurityRecoveryPanel', () => {
       'La protección fue restablecida.',
     )
     expect(retryOriginal).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+    await act(async () => { await user.click(screen.getByRole('button', { name: 'Reintentar' })) })
     await waitFor(() => {
       expect(retryOriginal).toHaveBeenCalledOnce()
     })
@@ -106,15 +108,15 @@ describe('SecurityRecoveryPanel', () => {
     ['unavailable', 'No pudimos restablecer la protección. Inténtalo nuevamente.'],
   ] as const)('announces the generic %s outcome', async (kind, message) => {
     const user = userEvent.setup()
-    const container = renderPanel(
+    const container = await renderPanel(
       controllerStub({
         restoreProtection: () => Promise.resolve({ kind }),
       }),
     )
 
-    await user.click(
+    await act(async () => { await user.click(
       screen.getByRole('button', { name: 'Restablecer protección' }),
-    )
+    ) })
     if (kind === 'blocked') {
       expect((await screen.findByRole('alert')).textContent).toContain(message)
     } else {
