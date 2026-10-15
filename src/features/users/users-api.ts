@@ -3,6 +3,7 @@ import { z } from 'zod'
 import {
   paginatedUserResponseSchema,
   userResponseSchema,
+  userUuidSchema,
   type PaginatedUserResponse,
   type UserResponse,
 } from '../../contracts/schemas/user'
@@ -18,6 +19,7 @@ const SEARCH_TARGET = '/users/search'
 const SEARCH_KEYS = ['email'] as const
 const MAX_PAGE = 100_000
 const MAX_PAGE_SIZE = 50
+const publicUserSchema = userResponseSchema
 
 const searchRequestSchema = z.strictObject({
   email: z.string().trim().toLowerCase().pipe(z.email()),
@@ -32,9 +34,29 @@ export interface SearchNotFoundOutcome {
   readonly kind: 'not-found'
 }
 
+export type UserNotFoundOutcome = SearchNotFoundOutcome
+
+export interface ValidPublicUuidOutcome {
+  readonly kind: 'valid'
+  readonly userUuid: string
+}
+
+export type PublicUuidParseResult =
+  | ValidPublicUuidOutcome
+  | UserNotFoundOutcome
+
+export interface GetUserParams {
+  readonly userUuid: unknown
+  readonly signal?: AbortSignal
+}
+
 export type SearchUsersOutcome =
   | MutationOutcome<UserResponse>
   | SearchNotFoundOutcome
+
+export type GetUserOutcome =
+  | ReadOutcome<UserResponse>
+  | UserNotFoundOutcome
 
 export interface UsersApiConfig {
   readonly apiClient: Pick<ApiClient, 'read' | 'mutate'>
@@ -49,6 +71,10 @@ export interface UsersApi {
     email: string,
     signal?: AbortSignal,
   ) => Promise<SearchUsersOutcome>
+  readonly getUser: (
+    params: GetUserParams | string,
+    signal?: AbortSignal,
+  ) => Promise<GetUserOutcome>
 }
 
 export function normalizePage(page: number): number {
@@ -65,12 +91,33 @@ export function normalizeSearchEmail(email: string): string {
   return searchRequestSchema.parse({ email }).email
 }
 
-function isSearchNotFound(error: unknown): error is ApiError {
+export function parsePublicUuid(input: unknown): PublicUuidParseResult {
+  if (typeof input !== 'string') return { kind: 'not-found' }
+  const result = userUuidSchema.safeParse(input.toLowerCase())
+  return result.success
+    ? { kind: 'valid', userUuid: result.data }
+    : { kind: 'not-found' }
+}
+
+function isUserNotFound(error: unknown): error is ApiError {
   return (
     error instanceof ApiError &&
     error.failure.status === 404 &&
     error.failure.kind === 'not-found'
   )
+}
+
+function resolveGetUserParams(
+  params: GetUserParams | string,
+  signal?: AbortSignal,
+): GetUserParams {
+  if (typeof params !== 'string') {
+    return {
+      userUuid: params.userUuid,
+      signal: params.signal ?? signal,
+    }
+  }
+  return { userUuid: params, signal }
 }
 
 export function createUsersApi(config: UsersApiConfig): UsersApi {
@@ -97,7 +144,25 @@ export function createUsersApi(config: UsersApiConfig): UsersApi {
           signal,
         })
       } catch (error: unknown) {
-        if (isSearchNotFound(error)) return { kind: 'not-found' }
+        if (isUserNotFound(error)) return { kind: 'not-found' }
+        throw error
+      }
+    },
+    async getUser(params, signal) {
+      const resolved = resolveGetUserParams(params, signal)
+      const parsedUuid = parsePublicUuid(resolved.userUuid)
+      if (parsedUuid.kind === 'not-found') {
+        return { kind: 'not-found' }
+      }
+
+      try {
+        return await config.apiClient.read({
+          target: `${USERS_TARGET}/${parsedUuid.userUuid}`,
+          schema: publicUserSchema,
+          signal: resolved.signal,
+        })
+      } catch (error: unknown) {
+        if (isUserNotFound(error)) return { kind: 'not-found' }
         throw error
       }
     },

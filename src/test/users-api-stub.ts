@@ -14,5 +14,6 @@ export function createUsersApiStub(): UsersApi {
         },
       }),
     search: () => Promise.resolve({ kind: 'not-found' }),
+    getUser: () => Promise.resolve({ kind: 'not-found' }),
   }
 }

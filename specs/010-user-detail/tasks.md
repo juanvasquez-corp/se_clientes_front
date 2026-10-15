@@ -2,7 +2,7 @@
 
 > Cada tarea futura dura 20–30 minutos, comienza roja, termina verde y actualiza `MEMORY.md`.
 
-- [ ] **T1. Validar UUID e implementar API/query de detalle.** RF-1, RF-7
+- [x] **T1. Validar UUID e implementar API/query de detalle.** RF-1, RF-7
   - Hecho cuando: UUID válido, inválido, 404 y AbortSignal pasan; `MEMORY.md` actualizado.
 - [ ] **T2. Renderizar tarjeta de datos públicos.** RF-2
   - Hecho cuando: seis campos/nulos pasan y datos prohibidos no existen; `MEMORY.md` actualizado.

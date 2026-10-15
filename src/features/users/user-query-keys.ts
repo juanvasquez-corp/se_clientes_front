@@ -4,15 +4,23 @@ import {
   normalizePage,
   normalizePageSize,
   normalizeSearchEmail,
+  parsePublicUuid,
 } from './users-api'
 
 export type UserDirectoryQueryRoot = readonly ['users', string]
 export type UserDirectoryQueryKey =
   | readonly ['users', string, 'list', number, number]
   | readonly ['users', string, 'search', string]
+export type UserDetailQueryKey = readonly [
+  'users',
+  'account',
+  string,
+  'detail',
+  string,
+]
 
 function validatedAccountUuid(accountUuid: string): string {
-  return userUuidSchema.parse(accountUuid)
+  return userUuidSchema.parse(accountUuid.toLowerCase())
 }
 
 export function userDirectoryQueryRoot(accountUuid: string): UserDirectoryQueryRoot {
@@ -38,4 +46,22 @@ export function userDirectoryQueryKey(
         'search',
         normalizeSearchEmail(state.email),
       ] as const)
+}
+
+export function userDetailQueryKey(
+  accountUuid: string,
+  userUuid: string,
+): UserDetailQueryKey {
+  const validatedAccount = validatedAccountUuid(accountUuid)
+  const parsedTarget = parsePublicUuid(userUuid)
+  const normalizedTarget =
+    parsedTarget.kind === 'valid' ? parsedTarget.userUuid : 'not-found'
+
+  return Object.freeze([
+    'users',
+    'account',
+    validatedAccount,
+    'detail',
+    normalizedTarget,
+  ] as const)
 }

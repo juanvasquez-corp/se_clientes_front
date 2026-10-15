@@ -71,6 +71,7 @@ function createFixtureApi(state: FixtureState): UsersApi {
         user === undefined ? { kind: 'not-found' as const } : { kind: 'success' as const, data: user },
       )
     },
+    getUser: () => Promise.resolve({ kind: 'not-found' }),
   }
 }
 

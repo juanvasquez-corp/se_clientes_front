@@ -50,6 +50,7 @@ function createUsersApiSpy(): UsersApi & { list: ReturnType<typeof vi.fn<UsersAp
   return {
     list,
     search: () => Promise.resolve({ kind: 'not-found' }),
+    getUser: () => Promise.resolve({ kind: 'not-found' }),
   }
 }
 
@@ -282,6 +283,7 @@ describe('production users route', () => {
         return new Promise(() => undefined)
       },
       search: () => Promise.resolve({ kind: 'not-found' }),
+      getUser: () => Promise.resolve({ kind: 'not-found' }),
     }
     await renderRoute('/users', 'superadmin', usersApi)
     await started

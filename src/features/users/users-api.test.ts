@@ -4,11 +4,14 @@ import { describe, expect, it } from 'vitest'
 import { createApiClient, type RecoveryResult } from '../../core/http/api-client'
 import { ApiError, ContractError } from '../../core/http/errors'
 import { server } from '../../test/server'
-import { createUsersApi } from './users-api'
+import { createUsersApi, parsePublicUuid } from './users-api'
 
 const API_BASE_URL = 'https://api.example.test/api'
 const USERS_URL = `${API_BASE_URL}/users`
 const SEARCH_URL = `${USERS_URL}/search`
+const TARGET_UUID = '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75'
+const UPPERCASE_TARGET_UUID = '2F1F7A2E-46F5-4C8A-B47D-524F1F2E1C75'
+const USER_DETAIL_URL = `${USERS_URL}/${TARGET_UUID}`
 const USER_RESPONSE = {
   uuid: '2f1f7a2e-46f5-4c8a-b47d-524f1f2e1c75',
   name: 'Ana',
@@ -200,7 +203,7 @@ describe('users API', () => {
     expect(error).not.toHaveProperty('config')
   })
 
-  it.each(['list', 'search'] as const)('propagates AbortSignal through %s', async (operation) => {
+  it.each(['list', 'search', 'getUser'] as const)('propagates AbortSignal through %s', async (operation) => {
     let requestStarted: (() => void) | undefined
     const started = new Promise<void>((resolve) => {
       requestStarted = resolve
@@ -210,16 +213,198 @@ describe('users API', () => {
       await delay('infinite')
       return HttpResponse.json(operation === 'list' ? PAGE_RESPONSE : USER_RESPONSE)
     }
-    server.use(operation === 'list' ? http.get(USERS_URL, handler) : http.post(SEARCH_URL, handler))
+    server.use(
+      operation === 'list'
+        ? http.get(USERS_URL, handler)
+        : operation === 'search'
+          ? http.post(SEARCH_URL, handler)
+          : http.get(USER_DETAIL_URL, handler),
+    )
     const controller = new AbortController()
     const api = createTestUsersApi()
     const pending = operation === 'list'
       ? api.list({ page: 1, size: 10 }, controller.signal)
-      : api.search('ana@example.com', controller.signal)
+      : operation === 'search'
+        ? api.search('ana@example.com', controller.signal)
+        : api.getUser({ userUuid: TARGET_UUID, signal: controller.signal })
 
     await started
     controller.abort()
 
     await expect(pending).rejects.toMatchObject({ reason: 'cancelled' })
+  })
+
+  describe('parsePublicUuid', () => {
+    it('accepts a valid UUID and normalizes it to lowercase', () => {
+      expect(parsePublicUuid(TARGET_UUID)).toEqual({
+        kind: 'valid',
+        userUuid: TARGET_UUID,
+      })
+      expect(parsePublicUuid(UPPERCASE_TARGET_UUID)).toEqual({
+        kind: 'valid',
+        userUuid: TARGET_UUID,
+      })
+    })
+
+    it.each([
+      ['empty string', ''],
+      ['whitespace', '   '],
+      ['numeric cedula', '1023456789'],
+      ['path traversal', '../me'],
+      ['nested path traversal', `${TARGET_UUID}/../me`],
+      ['status subpath', `${TARGET_UUID}/status`],
+      ['non-uuid text', 'not-a-uuid'],
+      ['null', null],
+      ['undefined', undefined],
+      ['number', 1023456789],
+      ['object', { userUuid: TARGET_UUID }],
+    ])('returns not-found without throwing for %s', (_label, invalidInput) => {
+      expect(parsePublicUuid(invalidInput)).toEqual({ kind: 'not-found' })
+    })
+  })
+
+  describe('getUser', () => {
+    it.each([
+      ['empty string', ''],
+      ['numeric cedula', '1023456789'],
+      ['path traversal', '../me'],
+      ['non-uuid', 'not-a-uuid'],
+      ['null', null],
+    ])('returns controlled not-found with 0 HTTP calls when userUuid is %s', async (_label, invalidUuid) => {
+      let requests = 0
+      server.use(
+        http.get(`${USERS_URL}/*`, () => {
+          requests += 1
+          return HttpResponse.json(USER_RESPONSE)
+        }),
+      )
+
+      await expect(
+        createTestUsersApi().getUser({ userUuid: invalidUuid }),
+      ).resolves.toEqual({ kind: 'not-found' })
+      expect(requests).toBe(0)
+    })
+
+    it('requests GET /api/users/{normalizedUuid} with strict publicUserSchema', async () => {
+      server.use(
+        http.get(USER_DETAIL_URL, ({ request }) => {
+          const url = new URL(request.url)
+          expect(request.method).toBe('GET')
+          expect(url.pathname).toBe(`/api/users/${TARGET_UUID}`)
+          expect(url.search).toBe('')
+          return HttpResponse.json(USER_RESPONSE)
+        }),
+      )
+
+      await expect(
+        createTestUsersApi().getUser({ userUuid: UPPERCASE_TARGET_UUID }),
+      ).resolves.toEqual({
+        kind: 'success',
+        data: USER_RESPONSE,
+      })
+    })
+
+    it.each([
+      ['prohibited cedula field', { ...USER_RESPONSE, cedula: '1023456789' }],
+      ['prohibited internal id field', { ...USER_RESPONSE, id: 17 }],
+      ['prohibited psswd field', { ...USER_RESPONSE, psswd: 'Secret123!' }],
+      ['prohibited created_at field', { ...USER_RESPONSE, created_at: '2026-10-01T00:00:00Z' }],
+      ['prohibited updated_at field', { ...USER_RESPONSE, updated_at: '2026-10-01T00:00:00Z' }],
+      ['prohibited deleted_at field', { ...USER_RESPONSE, deleted_at: null }],
+      ['invalid public role', { ...USER_RESPONSE, rol: 'admin' }],
+    ])('rejects a detail response with %s', async (_case, response) => {
+      server.use(http.get(USER_DETAIL_URL, () => HttpResponse.json(response)))
+
+      await expect(
+        createTestUsersApi().getUser({ userUuid: TARGET_UUID }),
+      ).rejects.toMatchObject({
+        name: 'ContractError',
+        reason: 'invalid-shape',
+      })
+    })
+
+    it('rejects corrupt JSON from getUser', async () => {
+      server.use(
+        http.get(
+          USER_DETAIL_URL,
+          () => new HttpResponse('{"uuid":', { headers: { 'Content-Type': 'application/json' } }),
+        ),
+      )
+
+      await expect(
+        createTestUsersApi().getUser({ userUuid: TARGET_UUID }),
+      ).rejects.toMatchObject({
+        name: 'ContractError',
+        reason: 'invalid-json',
+      })
+    })
+
+    it('specializes a valid 404 detail response as not-found without comparing Spanish text', async () => {
+      server.use(
+        http.get(USER_DETAIL_URL, () =>
+          HttpResponse.json({ detail: 'arbitrary-backend-404-detail' }, { status: 404 }),
+        ),
+      )
+
+      await expect(
+        createTestUsersApi().getUser({ userUuid: TARGET_UUID }),
+      ).resolves.toEqual({
+        kind: 'not-found',
+      })
+    })
+
+    it('does not specialize a malformed detail 404 response', async () => {
+      server.use(
+        http.get(USER_DETAIL_URL, () =>
+          HttpResponse.json({ detail: 'not found', leaked: 'cedula' }, { status: 404 }),
+        ),
+      )
+
+      const error = await createTestUsersApi()
+        .getUser({ userUuid: TARGET_UUID })
+        .catch((caught: unknown) => caught)
+      expect(error).toBeInstanceOf(ApiError)
+      expect(error).toMatchObject({ failure: { kind: 'client-error', status: 404 } })
+    })
+
+    it.each([
+      [403, 'forbidden'],
+      [503, 'unavailable'],
+    ] as const)('preserves the sanitized detail failure for HTTP %i', async (status, kind) => {
+      server.use(
+        http.get(USER_DETAIL_URL, () => HttpResponse.json({ detail: 'safe' }, { status })),
+      )
+
+      const error = await createTestUsersApi()
+        .getUser({ userUuid: TARGET_UUID })
+        .catch((caught: unknown) => caught)
+      expect(error).toBeInstanceOf(ApiError)
+      expect(error).toMatchObject({ failure: { kind, status } })
+    })
+
+    it('preserves the sanitized detail session outcome for 401 after recovery', async () => {
+      server.use(
+        http.get(USER_DETAIL_URL, () => HttpResponse.json({ detail: 'expired' }, { status: 401 })),
+      )
+
+      await expect(
+        createTestUsersApi('dead').getUser({ userUuid: TARGET_UUID }),
+      ).resolves.toEqual({
+        kind: 'session',
+        state: 'dead',
+      })
+    })
+
+    it('preserves a sanitized network failure from getUser', async () => {
+      server.use(http.get(USER_DETAIL_URL, () => HttpResponse.error()))
+
+      const error = await createTestUsersApi()
+        .getUser({ userUuid: TARGET_UUID })
+        .catch((caught: unknown) => caught)
+      expect(error).toBeInstanceOf(ApiError)
+      expect(error).toMatchObject({ failure: { kind: 'unavailable', status: undefined } })
+      expect(error).not.toHaveProperty('request')
+      expect(error).not.toHaveProperty('config')
+    })
   })
 })
