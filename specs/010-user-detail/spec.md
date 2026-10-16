@@ -1,6 +1,6 @@
 # Spec 010 — Detalle administrativo de usuario
 
-**Estado:** aprobada  
+**Estado:** implementada
 **Versión:** 1.1.0  
 **Fecha:** 2026-10-02  
 **Proyecto:** Gestión de usuarios — Frontend
