@@ -6,7 +6,7 @@
   - Hecho cuando: UUID válido, inválido, 404 y AbortSignal pasan; `MEMORY.md` actualizado.
 - [x] **T2. Renderizar tarjeta de datos públicos.** RF-2
   - Hecho cuando: seis campos/nulos pasan y datos prohibidos no existen; `MEMORY.md` actualizado.
-- [ ] **T3. Implementar contexto y breadcrumb responsive.** RF-3
+- [x] **T3. Implementar contexto y breadcrumb responsive.** RF-3
   - Hecho cuando: volver/listado y variante móvil pasan; `MEMORY.md` actualizado.
 - [ ] **T4. Implementar acciones propias y ajenas.** RF-4–RF-6
   - Hecho cuando: editar siempre y estado/eliminar solo ajenos pasan; `MEMORY.md` actualizado.

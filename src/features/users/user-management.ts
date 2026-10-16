@@ -1,4 +1,61 @@
 import { userUuidSchema, type UserResponse } from '../../contracts/schemas/user'
+import { parsePublicUuid } from './users-api'
+
+const DEFAULT_DETAIL_BREADCRUMB_LABEL = 'Detalle de usuario'
+const NUMERIC_IDENTIFIER_PATTERN = /^\d{5,}$/u
+
+export type DetailBreadcrumbViewport = 'desktop' | 'mobile'
+
+export interface DesktopDetailBreadcrumb {
+  readonly kind: 'desktop'
+  readonly parentLabel: 'Usuarios'
+  readonly parentHref: '/users'
+  readonly currentLabel: string
+}
+
+export interface MobileDetailBreadcrumb {
+  readonly kind: 'mobile'
+  readonly backLabel: 'Volver a usuarios'
+  readonly backHref: '/users'
+  readonly currentLabel: string
+}
+
+export type DetailBreadcrumbModel =
+  | DesktopDetailBreadcrumb
+  | MobileDetailBreadcrumb
+
+function normalizeDetailBreadcrumbLabel(currentLabel?: string): string {
+  const trimmed = currentLabel?.trim() ?? ''
+  if (
+    trimmed.length === 0 ||
+    parsePublicUuid(trimmed).kind === 'valid' ||
+    NUMERIC_IDENTIFIER_PATTERN.test(trimmed)
+  ) {
+    return DEFAULT_DETAIL_BREADCRUMB_LABEL
+  }
+  return trimmed
+}
+
+export function detailBreadcrumb(
+  viewport: DetailBreadcrumbViewport,
+  currentLabel?: string,
+): DetailBreadcrumbModel {
+  const normalizedCurrentLabel = normalizeDetailBreadcrumbLabel(currentLabel)
+
+  return viewport === 'desktop'
+    ? {
+        kind: 'desktop',
+        parentLabel: 'Usuarios',
+        parentHref: '/users',
+        currentLabel: normalizedCurrentLabel,
+      }
+    : {
+        kind: 'mobile',
+        backLabel: 'Volver a usuarios',
+        backHref: '/users',
+        currentLabel: normalizedCurrentLabel,
+      }
+}
 
 export function canManageTarget(currentUserUuid: string, targetUserUuid: string): boolean {
   const current = userUuidSchema.safeParse(currentUserUuid)
