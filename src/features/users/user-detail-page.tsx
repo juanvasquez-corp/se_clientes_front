@@ -146,7 +146,9 @@ export function UserDetailPage({
     if (detailQuery.error !== null) {
       setRetryError(detailQuery.error)
     }
-    void detailQuery.refetch()
+    void detailQuery.refetch().finally(() => {
+      setRetryError(null)
+    })
   }
 
   const parsedUser =

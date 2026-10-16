@@ -1,4 +1,4 @@
-import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { notifyManager, QueryClientProvider, type QueryClient } from '@tanstack/react-query'
 import {
   createMemoryHistory,
   createRootRoute,
@@ -15,10 +15,16 @@ import { screen, waitFor, within } from '@testing-library/dom'
 import { userEvent } from '@testing-library/user-event'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createAppQueryClient } from '../../app/query-client'
 import type { UserResponse } from '../../contracts/schemas/user'
 import { createApiClient, type RecoveryResult } from '../../core/http/api-client'
 import { server } from '../../test/server'
 import { createUsersApi } from './users-api'
+import {
+  createUserDetailMutationInvalidationMeta,
+  invalidateUserDetailQuery,
+  syncConfirmedUserDetail,
+} from './user-detail-query'
 import { UserDetailPage, type UserDetailPageProps } from './user-detail-page'
 
 const API_BASE_URL = 'https://api.example.test/api'
@@ -89,9 +95,7 @@ async function renderUserDetailPage(
   overrides: Partial<UserDetailPageProps> = {},
 ) {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => undefined)
-  const queryClient = new QueryClient({
-    defaultOptions: { queries: { retry: 3 } },
-  })
+  const queryClient = createAppQueryClient()
   queryClients.push(queryClient)
 
   const props: UserDetailPageProps = {
@@ -403,5 +407,206 @@ describe('UserDetailPage', () => {
       expect(onSessionState).toHaveBeenCalledTimes(1)
       expect(onSessionState).toHaveBeenCalledWith('dead')
     })
+  })
+
+  it('replaces visible card fields, badges and status action immediately when syncConfirmedUserDetail updates the open UUID without unmounting into skeleton (RF-8)', async () => {
+    let requests = 0
+    server.use(
+      http.get(OTHER_DETAIL_URL, () => {
+        requests += 1
+        return HttpResponse.json(OTHER_USER)
+      }),
+    )
+    const onToggleStatus = vi.fn()
+
+    const { container, queryClient, router } = await renderUserDetailPage({
+      onToggleStatus,
+    })
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Carlos Ramírez' }),
+    ).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Desactivar usuario' })).toBeTruthy()
+    expect(requests).toBe(1)
+
+    await act(async () => {
+      await syncConfirmedUserDetail({
+        queryClient,
+        accountUuid: OTHER_UUID,
+        user: {
+          ...OTHER_USER,
+          name: 'Otra Cuenta',
+        },
+      })
+      await syncConfirmedUserDetail({
+        queryClient,
+        accountUuid: ACCOUNT_UUID,
+        user: {
+          ...SELF_USER,
+          name: 'Otro Usuario',
+        },
+      })
+      await new Promise<void>((resolve) => {
+        notifyManager.schedule(resolve)
+      })
+    })
+
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Carlos Ramírez' }),
+    ).toBeTruthy()
+
+    const confirmedUpdatedUser: UserResponse = {
+      uuid: OTHER_UUID,
+      name: 'Carlos Alberto',
+      last_name: 'Ramírez Soto',
+      email: 'carlos.alberto@example.com',
+      phone_number: null,
+      role: 'visualizer',
+      is_active: false,
+    }
+
+    await act(async () => {
+      await syncConfirmedUserDetail({
+        queryClient,
+        accountUuid: ACCOUNT_UUID,
+        user: confirmedUpdatedUser,
+      })
+      await new Promise<void>((resolve) => {
+        notifyManager.schedule(resolve)
+      })
+    })
+
+    expect(router.state.location.pathname).toBe(`/users/${OTHER_UUID}`)
+    expect(container.querySelector('[data-state="loading"]')).toBeNull()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Carlos Alberto Ramírez Soto' }),
+    ).toBeTruthy()
+    const nav = screen.getByRole('navigation', { name: 'Ruta de navegación' })
+    expect(
+      within(nav).getByText('Carlos Alberto Ramírez Soto').getAttribute('aria-current'),
+    ).toBe('page')
+    expect(screen.getByText('carlos.alberto@example.com')).toBeTruthy()
+    expect(screen.getByText('No informado')).toBeTruthy()
+    expect(screen.getByText('Visualizador')).toBeTruthy()
+    expect(screen.getByText('Inactivo')).toBeTruthy()
+    expect(screen.queryByRole('button', { name: 'Desactivar usuario' })).toBeNull()
+
+    const activateButton = screen.getByRole('button', { name: 'Activar usuario' })
+    const user = userEvent.setup()
+    await act(async () => {
+      await user.click(activateButton)
+    })
+    expect(onToggleStatus).toHaveBeenCalledWith(confirmedUpdatedUser)
+  })
+
+  it('refetches and replaces visible data on contextual mutation invalidation while keeping the same UUID and card mounted without skeleton (RF-8)', async () => {
+    let requests = 0
+    let releaseRefetch: (() => void) | undefined
+    const refetchGate = new Promise<void>((resolve) => {
+      releaseRefetch = resolve
+    })
+
+    const updatedUser: UserResponse = {
+      uuid: OTHER_UUID,
+      name: 'Carlos Alberto',
+      last_name: null,
+      email: 'carlos.actualizado@example.com',
+      phone_number: '+57 300 111 2233',
+      role: 'visualizer',
+      is_active: false,
+    }
+
+    server.use(
+      http.get(OTHER_DETAIL_URL, async () => {
+        requests += 1
+        if (requests === 1) {
+          return HttpResponse.json({ detail: 'unavailable' }, { status: 503 })
+        }
+        if (requests === 2) {
+          return HttpResponse.json(OTHER_USER)
+        }
+        await refetchGate
+        return HttpResponse.json(updatedUser)
+      }),
+    )
+
+    const { container, queryClient, router } = await renderUserDetailPage()
+
+    expect(await screen.findByText('Detalle no disponible')).toBeTruthy()
+    const user = userEvent.setup()
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Reintentar' }))
+    })
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Carlos Ramírez' }),
+    ).toBeTruthy()
+    expect(requests).toBe(2)
+
+    const mutation = queryClient.getMutationCache().build(queryClient, {
+      mutationFn: () => Promise.resolve(updatedUser),
+      meta: createUserDetailMutationInvalidationMeta(ACCOUNT_UUID, OTHER_UUID),
+    })
+
+    let mutationPromise: Promise<UserResponse> | undefined
+    await act(async () => {
+      mutationPromise = mutation.execute(undefined)
+      await Promise.resolve()
+    })
+
+    expect(requests).toBe(3)
+    expect(router.state.location.pathname).toBe(`/users/${OTHER_UUID}`)
+    expect(container.querySelector('[data-state="loading"]')).toBeNull()
+    expect(screen.queryByText('Detalle no disponible')).toBeNull()
+    expect(
+      screen.getByRole('heading', { level: 2, name: 'Carlos Ramírez' }),
+    ).toBeTruthy()
+
+    await act(async () => {
+      releaseRefetch?.()
+      await refetchGate
+      await mutationPromise
+    })
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Carlos Alberto' }),
+    ).toBeTruthy()
+    expect(router.state.location.pathname).toBe(`/users/${OTHER_UUID}`)
+    expect(screen.getByText('carlos.actualizado@example.com')).toBeTruthy()
+    expect(screen.getByText('+57 300 111 2233')).toBeTruthy()
+    expect(screen.getByText('Visualizador')).toBeTruthy()
+    expect(screen.getByText('Inactivo')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Activar usuario' })).toBeTruthy()
+    expect(requests).toBe(3)
+  })
+
+  it('transitions cleanly to contextual not-found state if a subsequent reload responds 404 after another admin deletes the open account (RF-7, RF-8)', async () => {
+    let deleted = false
+    server.use(
+      http.get(OTHER_DETAIL_URL, () => {
+        if (deleted) {
+          return HttpResponse.json({ detail: 'not found' }, { status: 404 })
+        }
+        return HttpResponse.json(OTHER_USER)
+      }),
+    )
+
+    const { container, queryClient, router } = await renderUserDetailPage()
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Carlos Ramírez' }),
+    ).toBeTruthy()
+
+    deleted = true
+    await act(async () => {
+      await invalidateUserDetailQuery(queryClient, ACCOUNT_UUID, OTHER_UUID)
+    })
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Usuario no encontrado' }),
+    ).toBeTruthy()
+    expect(router.state.location.pathname).toBe(`/users/${OTHER_UUID}`)
+    expect(container.textContent).not.toContain(OTHER_UUID)
+    expect(screen.getAllByRole('link', { name: /volver a usuarios/iu }).length).toBeGreaterThan(0)
   })
 })

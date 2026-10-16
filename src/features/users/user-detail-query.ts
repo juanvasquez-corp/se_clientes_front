@@ -4,10 +4,21 @@ import {
   type QueryClient,
 } from '@tanstack/react-query'
 
-import type { UserResponse } from '../../contracts/schemas/user'
+import {
+  createMutationInvalidationMeta,
+  type AppMutationMeta,
+} from '../../app/query-client'
+import {
+  userResponseSchema,
+  type UserResponse,
+} from '../../contracts/schemas/user'
 import type { SessionFailureState } from '../../core/http/api-client'
 import { parsePublicUuid, type UsersApi } from './users-api'
-import { userDetailQueryKey, type UserDetailQueryKey } from './user-query-keys'
+import {
+  userDetailQueryKey,
+  userDirectoryQueryRoot,
+  type UserDetailQueryKey,
+} from './user-query-keys'
 
 export interface UserDetailFoundOutcome {
   readonly status: 'found'
@@ -180,4 +191,51 @@ export function invalidateUserDetailQuery(
     queryKey: userDetailQueryKey(accountUuid, userUuid),
     exact: true,
   })
+}
+
+export function createUserDetailMutationInvalidationMeta(
+  accountUuid: string,
+  userUuid: string,
+): AppMutationMeta {
+  return createMutationInvalidationMeta([
+    userDetailQueryKey(accountUuid, userUuid),
+    userDirectoryQueryRoot(accountUuid),
+  ])
+}
+
+export async function syncConfirmedUserDetail({
+  accountUuid,
+  queryClient,
+  user,
+}: {
+  readonly accountUuid: string
+  readonly queryClient: QueryClient
+  readonly user: unknown
+}): Promise<UserResponse | null> {
+  const parsedAccount = parsePublicUuid(accountUuid)
+  if (parsedAccount.kind === 'not-found') return null
+
+  const parsedUser = userResponseSchema.safeParse(user)
+  if (!parsedUser.success) return null
+
+  const parsedTarget = parsePublicUuid(parsedUser.data.uuid)
+  if (parsedTarget.kind === 'not-found') return null
+
+  const confirmedUser: UserResponse = {
+    ...parsedUser.data,
+    uuid: parsedTarget.userUuid,
+  }
+  const detailKey = userDetailQueryKey(
+    parsedAccount.userUuid,
+    confirmedUser.uuid,
+  )
+  const directoryRootKey = userDirectoryQueryRoot(parsedAccount.userUuid)
+
+  queryClient.setQueryData<UserDetailFoundOutcome>(detailKey, {
+    status: 'found',
+    user: confirmedUser,
+  })
+  await queryClient.invalidateQueries({ queryKey: directoryRootKey })
+
+  return confirmedUser
 }

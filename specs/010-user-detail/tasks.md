@@ -12,7 +12,7 @@
   - Hecho cuando: editar siempre y estado/eliminar solo ajenos pasan; `MEMORY.md` actualizado.
 - [x] **T5. Integrar estados 404/red/503.** RF-7
   - Hecho cuando: not-found y retry contextual pasan; `MEMORY.md` actualizado.
-- [ ] **T6. Integrar actualización contextual.** RF-8
+- [x] **T6. Integrar actualización contextual.** RF-8
   - Hecho cuando: invalidación mantiene UUID y muestra datos confirmados; `MEMORY.md` actualizado.
 - [ ] **T7. Verificar detalle integral.** RF-1–RF-8
   - Hecho cuando: roles/E2E/backend/móvil/axe/privacidad y puerta integral pasan; `MEMORY.md` actualizado.

@@ -2,13 +2,17 @@ import { CancelledError, QueryClient } from '@tanstack/react-query'
 import { HttpResponse, delay, http } from 'msw'
 import { describe, expect, it } from 'vitest'
 
+import { createAppQueryClient } from '../../app/query-client'
 import { createApiClient, type RecoveryResult } from '../../core/http/api-client'
 import { ApiError, ContractError } from '../../core/http/errors'
 import { server } from '../../test/server'
+import { createListDirectoryState, submitDirectorySearch } from './directory-mode'
 import { createUsersApi } from './users-api'
-import { userDetailQueryKey } from './user-query-keys'
+import { userDetailQueryKey, userDirectoryQueryKey } from './user-query-keys'
 import {
+  createUserDetailMutationInvalidationMeta,
   invalidateUserDetailQuery,
+  syncConfirmedUserDetail,
   userDetailQueryOptions,
 } from './user-detail-query'
 
@@ -275,5 +279,173 @@ describe('user detail query options', () => {
         userDetailQueryKey(SECOND_ACCOUNT_UUID, TARGET_USER_UUID),
       )?.isInvalidated,
     ).toBe(false)
+  })
+
+  it('replaces cached detail with validated user and invalidates only same-account directory queries in syncConfirmedUserDetail (RF-8)', async () => {
+    const otherTargetUuid = '1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed'
+    const queryClient = createAppQueryClient()
+    const firstListKey = userDirectoryQueryKey(
+      FIRST_ACCOUNT_UUID,
+      createListDirectoryState({ page: 1, size: 10 }),
+    )
+    const firstSearchKey = userDirectoryQueryKey(
+      FIRST_ACCOUNT_UUID,
+      submitDirectorySearch(
+        createListDirectoryState({ page: 1, size: 10 }),
+        'carlos@example.com',
+      ),
+    )
+    const secondListKey = userDirectoryQueryKey(
+      SECOND_ACCOUNT_UUID,
+      createListDirectoryState({ page: 1, size: 10 }),
+    )
+
+    queryClient.setQueryData(
+      userDetailQueryKey(FIRST_ACCOUNT_UUID, TARGET_USER_UUID),
+      { status: 'found', user: USER_RESPONSE },
+    )
+    queryClient.setQueryData(
+      userDetailQueryKey(FIRST_ACCOUNT_UUID, otherTargetUuid),
+      {
+        status: 'found',
+        user: { ...USER_RESPONSE, uuid: otherTargetUuid, name: 'Otro' },
+      },
+    )
+    queryClient.setQueryData(
+      userDetailQueryKey(SECOND_ACCOUNT_UUID, TARGET_USER_UUID),
+      { status: 'found', user: USER_RESPONSE },
+    )
+    queryClient.setQueryData(firstListKey, { kind: 'success', data: [] })
+    queryClient.setQueryData(firstSearchKey, { kind: 'success', data: USER_RESPONSE })
+    queryClient.setQueryData(secondListKey, { kind: 'success', data: [] })
+
+    const updatedUser = {
+      uuid: UPPERCASE_TARGET_USER_UUID,
+      name: 'Carlos Alberto',
+      last_name: 'Ramírez',
+      email: 'carlos.alberto@example.com',
+      phone_number: '+57 310 555 0199',
+      role: 'visualizer' as const,
+      is_active: false,
+    }
+
+    const synced = await syncConfirmedUserDetail({
+      queryClient,
+      accountUuid: FIRST_ACCOUNT_UUID,
+      user: updatedUser,
+    })
+
+    expect(synced).toEqual({
+      ...updatedUser,
+      uuid: TARGET_USER_UUID,
+    })
+    expect(
+      queryClient.getQueryData(
+        userDetailQueryKey(FIRST_ACCOUNT_UUID, TARGET_USER_UUID),
+      ),
+    ).toEqual({
+      status: 'found',
+      user: {
+        ...updatedUser,
+        uuid: TARGET_USER_UUID,
+      },
+    })
+    expect(
+      queryClient.getQueryState(
+        userDetailQueryKey(FIRST_ACCOUNT_UUID, TARGET_USER_UUID),
+      )?.isInvalidated,
+    ).toBe(false)
+    expect(
+      queryClient.getQueryData(
+        userDetailQueryKey(FIRST_ACCOUNT_UUID, otherTargetUuid),
+      ),
+    ).toEqual({
+      status: 'found',
+      user: { ...USER_RESPONSE, uuid: otherTargetUuid, name: 'Otro' },
+    })
+    expect(
+      queryClient.getQueryData(
+        userDetailQueryKey(SECOND_ACCOUNT_UUID, TARGET_USER_UUID),
+      ),
+    ).toEqual({
+      status: 'found',
+      user: USER_RESPONSE,
+    })
+    expect(queryClient.getQueryState(firstListKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(firstSearchKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(secondListKey)?.isInvalidated).toBe(false)
+  })
+
+  it('rejects unvalidated or prohibited user payloads in syncConfirmedUserDetail without touching cache', async () => {
+    const queryClient = createAppQueryClient()
+    const detailKey = userDetailQueryKey(FIRST_ACCOUNT_UUID, TARGET_USER_UUID)
+    const firstListKey = userDirectoryQueryKey(
+      FIRST_ACCOUNT_UUID,
+      createListDirectoryState({ page: 1, size: 10 }),
+    )
+
+    queryClient.setQueryData(detailKey, { status: 'found', user: USER_RESPONSE })
+    queryClient.setQueryData(firstListKey, { kind: 'success', data: [] })
+
+    const synced = await syncConfirmedUserDetail({
+      queryClient,
+      accountUuid: FIRST_ACCOUNT_UUID,
+      user: {
+        ...USER_RESPONSE,
+        name: 'Intruso',
+        document_number: '1023456789',
+      },
+    })
+
+    expect(synced).toBeNull()
+    expect(queryClient.getQueryData(detailKey)).toEqual({
+      status: 'found',
+      user: USER_RESPONSE,
+    })
+    expect(queryClient.getQueryState(firstListKey)?.isInvalidated).toBe(false)
+  })
+
+  it('builds mutation invalidation metadata that invalidates target detail and same-account directory queries on mutation success (RF-8)', async () => {
+    const otherTargetUuid = '1b9d6bcd-bbfd-4b2d-9b5d-ab8dfbbd4bed'
+    const queryClient = createAppQueryClient()
+    const targetDetailKey = userDetailQueryKey(FIRST_ACCOUNT_UUID, TARGET_USER_UUID)
+    const siblingDetailKey = userDetailQueryKey(FIRST_ACCOUNT_UUID, otherTargetUuid)
+    const otherAccountDetailKey = userDetailQueryKey(
+      SECOND_ACCOUNT_UUID,
+      TARGET_USER_UUID,
+    )
+    const firstListKey = userDirectoryQueryKey(
+      FIRST_ACCOUNT_UUID,
+      createListDirectoryState({ page: 1, size: 10 }),
+    )
+    const secondListKey = userDirectoryQueryKey(
+      SECOND_ACCOUNT_UUID,
+      createListDirectoryState({ page: 1, size: 10 }),
+    )
+
+    queryClient.setQueryData(targetDetailKey, { status: 'found', user: USER_RESPONSE })
+    queryClient.setQueryData(siblingDetailKey, { status: 'found', user: USER_RESPONSE })
+    queryClient.setQueryData(otherAccountDetailKey, {
+      status: 'found',
+      user: USER_RESPONSE,
+    })
+    queryClient.setQueryData(firstListKey, { kind: 'success', data: [] })
+    queryClient.setQueryData(secondListKey, { kind: 'success', data: [] })
+
+    const mutation = queryClient.getMutationCache().build(queryClient, {
+      mutationFn: () => Promise.resolve(USER_RESPONSE),
+      meta: createUserDetailMutationInvalidationMeta(
+        FIRST_ACCOUNT_UUID,
+        UPPERCASE_TARGET_USER_UUID,
+      ),
+    })
+
+    await mutation.execute(undefined)
+
+    expect(queryClient.getQueryState(targetDetailKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(firstListKey)?.isInvalidated).toBe(true)
+    expect(queryClient.getQueryState(siblingDetailKey)?.isInvalidated).toBe(false)
+    expect(queryClient.getQueryState(otherAccountDetailKey)?.isInvalidated).toBe(false)
+    expect(queryClient.getQueryState(secondListKey)?.isInvalidated).toBe(false)
   })
 })
