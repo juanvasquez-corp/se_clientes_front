@@ -32,7 +32,7 @@ const USER = {
   last_name: 'López',
   email: 'ana@example.com',
   phone_number: null,
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 

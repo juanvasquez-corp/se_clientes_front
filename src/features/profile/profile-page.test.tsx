@@ -20,7 +20,7 @@ const PROFILE: UserResponse = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: null,
-  rol: 'visualizer',
+  role: 'visualizer',
   is_active: true,
 }
 
@@ -47,7 +47,7 @@ async function renderPage(profileApi: ProfileApi, profile: UserResponse = PROFIL
     lastName: profile.last_name,
     email: profile.email,
     phoneNumber: profile.phone_number,
-    role: profile.rol,
+    role: profile.role,
     isActive: profile.is_active,
   })
   await act(async () => {
@@ -144,7 +144,7 @@ describe('ProfilePageContent', () => {
   })
 
   it('has no axe violations for the loaded editable page', async () => {
-    const editable = { ...PROFILE, rol: 'master' as const }
+    const editable = { ...PROFILE, role: 'master' as const }
     const { container, scope, queryClient } = await renderPage(
       {
         get: () => Promise.resolve({ kind: 'success', data: editable }),

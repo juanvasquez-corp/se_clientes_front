@@ -18,7 +18,7 @@ const USER_RESPONSE = {
   last_name: 'López',
   email: 'ana@example.com',
   phone_number: '+57 300 123 4567',
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 const PAGE_RESPONSE = {
@@ -81,7 +81,7 @@ describe('users API', () => {
     ['extra page field', { ...PAGE_RESPONSE, sort: 'name' }],
     ['invalid metadata', { ...PAGE_RESPONSE, page_size: 51 }],
     ['invalid public user', { ...PAGE_RESPONSE, data: [{ ...USER_RESPONSE, email: 'invalid' }] }],
-    ['private user field', { ...PAGE_RESPONSE, data: [{ ...USER_RESPONSE, cedula: 'private' }] }],
+    ['private user field', { ...PAGE_RESPONSE, data: [{ ...USER_RESPONSE, document_number: 'private' }] }],
   ])('rejects a paginated response with %s', async (_case, response) => {
     server.use(http.get(USERS_URL, () => HttpResponse.json(response)))
 
@@ -123,7 +123,7 @@ describe('users API', () => {
 
   it.each([
     ['extra public field', { ...USER_RESPONSE, id: 17 }],
-    ['invalid public field', { ...USER_RESPONSE, rol: 'admin' }],
+    ['invalid public field', { ...USER_RESPONSE, role: 'admin' }],
   ])('rejects a search response with %s', async (_case, response) => {
     server.use(http.post(SEARCH_URL, () => HttpResponse.json(response)))
 
@@ -249,7 +249,7 @@ describe('users API', () => {
     it.each([
       ['empty string', ''],
       ['whitespace', '   '],
-      ['numeric cedula', '1023456789'],
+      ['numeric document_number', '1023456789'],
       ['path traversal', '../me'],
       ['nested path traversal', `${TARGET_UUID}/../me`],
       ['status subpath', `${TARGET_UUID}/status`],
@@ -266,7 +266,7 @@ describe('users API', () => {
   describe('getUser', () => {
     it.each([
       ['empty string', ''],
-      ['numeric cedula', '1023456789'],
+      ['numeric document_number', '1023456789'],
       ['path traversal', '../me'],
       ['non-uuid', 'not-a-uuid'],
       ['null', null],
@@ -305,13 +305,13 @@ describe('users API', () => {
     })
 
     it.each([
-      ['prohibited cedula field', { ...USER_RESPONSE, cedula: '1023456789' }],
+      ['prohibited document_number field', { ...USER_RESPONSE, document_number: '1023456789' }],
       ['prohibited internal id field', { ...USER_RESPONSE, id: 17 }],
-      ['prohibited psswd field', { ...USER_RESPONSE, psswd: 'Secret123!' }],
+      ['prohibited password field', { ...USER_RESPONSE, password: 'Secret123!' }],
       ['prohibited created_at field', { ...USER_RESPONSE, created_at: '2026-10-01T00:00:00Z' }],
       ['prohibited updated_at field', { ...USER_RESPONSE, updated_at: '2026-10-01T00:00:00Z' }],
       ['prohibited deleted_at field', { ...USER_RESPONSE, deleted_at: null }],
-      ['invalid public role', { ...USER_RESPONSE, rol: 'admin' }],
+      ['invalid public role', { ...USER_RESPONSE, role: 'admin' }],
     ])('rejects a detail response with %s', async (_case, response) => {
       server.use(http.get(USER_DETAIL_URL, () => HttpResponse.json(response)))
 
@@ -356,7 +356,7 @@ describe('users API', () => {
     it('does not specialize a malformed detail 404 response', async () => {
       server.use(
         http.get(USER_DETAIL_URL, () =>
-          HttpResponse.json({ detail: 'not found', leaked: 'cedula' }, { status: 404 }),
+          HttpResponse.json({ detail: 'not found', leaked: 'document_number' }, { status: 404 }),
         ),
       )
 

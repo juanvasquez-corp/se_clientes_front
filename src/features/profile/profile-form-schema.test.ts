@@ -18,7 +18,7 @@ describe('profileFormSchema', () => {
       email: 'ana@example.com',
     })
 
-    expect(profileFormSchema.safeParse({ ...validValues, rol: 'superadmin' }).success).toBe(
+    expect(profileFormSchema.safeParse({ ...validValues, role: 'superadmin' }).success).toBe(
       false,
     )
   })
@@ -37,7 +37,7 @@ describe('profileFormSchema', () => {
   )
 
   it('rejects inherited extra properties', () => {
-    const candidate = Object.assign(Object.create({ cedula: 'secret' }) as object, validValues)
+    const candidate = Object.assign(Object.create({ document_number: 'secret' }) as object, validValues)
 
     expect(profileFormSchema.safeParse(candidate).success).toBe(false)
   })
@@ -78,12 +78,12 @@ describe('buildProfileUpdate', () => {
     expect(() =>
       buildProfileUpdate({
         ...validValues,
-        rol: 'superadmin',
+        role: 'superadmin',
         is_active: false,
-        cedula: 'secret',
+        document_number: 'secret',
         uuid: 'secret',
         created_at: 'secret',
-        psswd: 'secret',
+        password: 'secret',
       }),
     ).toThrow()
   })

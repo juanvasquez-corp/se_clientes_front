@@ -24,9 +24,9 @@ Crear un formulario administrativo precargado desde el detalle público. El sche
 
 | Función | Entrada | Salida | RF |
 |---|---|---|---|
-| `editDefaultsFromUser` | UserResponse | form con `cedula=''` | RF-1 |
+| `editDefaultsFromUser` | UserResponse | form con `document_number=''` (cédula) | RF-1 |
 | `buildAdminUpdatePayload` | values + target/current UUID/rol inicial | payload sin estado y campos condicionales | RF-3–RF-7 |
-| `clearCedulaAfter401` | values | values con cédula vacía | RF-13 |
+| `clearDocumentNumberAfter401` | values | values con cédula vacía | RF-13 |
 | `isOwnAdministrativeEdit` | UUIDs | booleano | RF-5 |
 
 No aplica `hoy`.
@@ -34,7 +34,7 @@ No aplica `hoy`.
 ## Algoritmo
 
 ```text
-query detail → defaults públicos + cedula vacía
+query detail → defaults públicos + document_number vacío
 self → role readonly/omitido; other → role selector
 submit → validar → builder → PUT una vez
 success → invalidar list/detail/profile aplicables → /users/$uuid

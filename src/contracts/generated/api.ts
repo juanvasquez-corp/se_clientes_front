@@ -189,10 +189,10 @@ export interface components {
              * Format: email
              */
             email: string;
-            /** Cedula */
-            cedula?: string | null;
-            /** Rol */
-            rol?: ("superadmin" | "master" | "visualizer") | null;
+            /** Document Number */
+            document_number?: string | null;
+            /** Role */
+            role?: ("superadmin" | "master" | "visualizer") | null;
         };
         /** CsrfResponse */
         CsrfResponse: {
@@ -212,10 +212,10 @@ export interface components {
              */
             email: string;
             /**
-             * Psswd
+             * Password
              * Format: password
              */
-            psswd: string;
+            password: string;
         };
         /** MessageResponse */
         MessageResponse: {
@@ -251,8 +251,8 @@ export interface components {
         };
         /** UserRegister */
         UserRegister: {
-            /** Cedula */
-            cedula: string;
+            /** Document Number */
+            document_number: string;
             /** Name */
             name: string;
             /** Last Name */
@@ -265,15 +265,15 @@ export interface components {
             /** Phone Number */
             phone_number?: string | null;
             /**
-             * Psswd
+             * Password
              * Format: password
              */
-            psswd: string;
+            password: string;
             /**
-             * Rol
+             * Role
              * @enum {string}
              */
-            rol: "superadmin" | "master" | "visualizer";
+            role: "superadmin" | "master" | "visualizer";
         };
         /** UserResponse */
         UserResponse: {
@@ -294,10 +294,10 @@ export interface components {
             /** Phone Number */
             phone_number: string | null;
             /**
-             * Rol
+             * Role
              * @enum {string}
              */
-            rol: "superadmin" | "master" | "visualizer";
+            role: "superadmin" | "master" | "visualizer";
             /** Is Active */
             is_active: boolean;
         };

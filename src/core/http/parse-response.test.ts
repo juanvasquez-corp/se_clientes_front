@@ -9,7 +9,7 @@ const validUser = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: null,
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 
@@ -22,7 +22,7 @@ describe('parseJsonResponse', () => {
   })
 
   it.each([
-    JSON.stringify({ ...validUser, cedula: 'private-value' }),
+    JSON.stringify({ ...validUser, document_number: 'private-value' }),
     JSON.stringify({ ...validUser, is_active: 'true' }),
   ])('rejects a JSON response outside the public contract', (body) => {
     expect(parseJsonResponse(body, userResponseSchema)).toMatchObject({

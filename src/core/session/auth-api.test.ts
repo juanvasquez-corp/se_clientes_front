@@ -27,7 +27,7 @@ const USER_RESPONSE = {
   last_name: 'Pérez',
   email: 'ana@example.com',
   phone_number: '3001234567',
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 
@@ -112,7 +112,7 @@ describe('auth API login orchestration', () => {
         expect(request.headers.get('x-requested-with')).toBe('XMLHttpRequest')
         expect(await request.json()).toEqual({
           email: 'ana@example.com',
-          psswd: PASSWORD,
+          password: PASSWORD,
         })
         return HttpResponse.json(TOKEN_RESPONSE)
       }),
@@ -129,7 +129,7 @@ describe('auth API login orchestration', () => {
       createRealLoginPort()
 
     await expect(
-      authApi.login({ email: 'ana@example.com', psswd: PASSWORD }),
+      authApi.login({ email: 'ana@example.com', password: PASSWORD }),
     ).resolves.toEqual({
       kind: 'authenticated',
       identity: {
@@ -177,7 +177,7 @@ describe('auth API login orchestration', () => {
     const { authApi, publish, sessionStore } = createRealLoginPort()
 
     await expect(
-      authApi.login({ email: 'ana@example.com', psswd: PASSWORD }),
+      authApi.login({ email: 'ana@example.com', password: PASSWORD }),
     ).resolves.toEqual({ kind: 'technical' })
     expect(profileRequests).toBe(0)
     expect(publish).not.toHaveBeenCalled()
@@ -194,11 +194,11 @@ describe('auth API login orchestration', () => {
         HttpResponse.json(TOKEN_RESPONSE),
       ),
       http.get('https://api.example.test/api/users/me', () =>
-        HttpResponse.json({ ...USER_RESPONSE, cedula: 'must-not-be-public' }),
+        HttpResponse.json({ ...USER_RESPONSE, document_number: 'must-not-be-public' }),
       ),
     )
     const { authApi, publish, sessionStore } = createRealLoginPort()
-    const outcome = await authApi.login({ email: 'ana@example.com', psswd: PASSWORD })
+    const outcome = await authApi.login({ email: 'ana@example.com', password: PASSWORD })
 
     expect(outcome).toEqual({ kind: 'technical' })
     expect(publish).not.toHaveBeenCalled()
@@ -223,13 +223,13 @@ describe('auth API login orchestration', () => {
         HttpResponse.json(TOKEN_RESPONSE),
       ),
       http.get('https://api.example.test/api/users/me', () =>
-        HttpResponse.json({ ...USER_RESPONSE, rol: 'operator' }),
+        HttpResponse.json({ ...USER_RESPONSE, role: 'operator' }),
       ),
     )
     const { authApi, sessionStore } = createRealLoginPort()
 
     await expect(
-      authApi.login({ email: 'ana@example.com', psswd: PASSWORD }),
+      authApi.login({ email: 'ana@example.com', password: PASSWORD }),
     ).resolves.toEqual({ kind: 'technical' })
     expect(sessionStore.getState()).toMatchObject({
       status: 'dead',
@@ -251,7 +251,7 @@ describe('auth API login orchestration', () => {
     const { authApi } = createRealLoginPort()
 
     await expect(
-      authApi.login({ email: 'ana@example.com', psswd: PASSWORD }),
+      authApi.login({ email: 'ana@example.com', password: PASSWORD }),
     ).resolves.toEqual({ kind: 'credentials-rejected' })
   })
 
@@ -276,7 +276,7 @@ describe('auth API login orchestration', () => {
 
       const outcome = await authApi.login({
         email: 'ana@example.com',
-        psswd: PASSWORD,
+        password: PASSWORD,
       })
 
       expect(outcome).toEqual({ kind: 'rate-limited', retryAfter })

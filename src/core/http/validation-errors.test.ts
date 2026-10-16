@@ -92,7 +92,7 @@ describe('mapValidationIssues', () => {
       detail: [
         {
           type: 'string_too_short',
-          loc: ['body', 'psswd'],
+          loc: ['body', 'password'],
           msg: 'Valor demasiado corto',
           input: 'private-password-value',
           ctx: { private: 'private-context-value' },
@@ -103,10 +103,10 @@ describe('mapValidationIssues', () => {
     expect(parsed.success).toBe(true)
     if (!parsed.success) return
 
-    const result = mapValidationIssues(parsed.data.detail, ['psswd'] as const)
+    const result = mapValidationIssues(parsed.data.detail, ['password'] as const)
 
     expect(result).toEqual({
-      fields: { psswd: 'Valor demasiado corto' },
+      fields: { password: 'Valor demasiado corto' },
       general: [],
     })
     expect(JSON.stringify(result)).not.toContain('private-')

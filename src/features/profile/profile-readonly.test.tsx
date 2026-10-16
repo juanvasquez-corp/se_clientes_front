@@ -13,7 +13,7 @@ const PROFILE: UserResponse = {
   last_name: 'López',
   email: 'ana@example.com',
   phone_number: '+57 300 123 4567',
-  rol: 'master',
+  role: 'master',
   is_active: true,
 }
 
@@ -87,7 +87,7 @@ describe('ProfileReadonly', () => {
   ] as const)(
     'presents %s and active=%s as informative badges',
     (role, isActive, roleLabel, roleVariant, statusLabel, statusVariant) => {
-      const container = renderProfile({ ...PROFILE, rol: role, is_active: isActive })
+      const container = renderProfile({ ...PROFILE, role, is_active: isActive })
 
       expect(screen.getByText(roleLabel).getAttribute('data-variant')).toBe(roleVariant)
       expect(screen.getByText(statusLabel).getAttribute('data-variant')).toBe(statusVariant)

@@ -16,7 +16,7 @@ const USER_RESPONSE = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: null,
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 const MUTATION_RESPONSE_SCHEMA = z.union([userResponseSchema, messageResponseSchema])
@@ -71,7 +71,7 @@ describe('apiClient network policy', () => {
         last_name: null,
         phone_number: null,
         email: 'ana@example.com',
-        rol: 'superadmin',
+        role: 'superadmin',
       },
       allowedKeys: ['name', 'last_name', 'phone_number', 'email'] as const,
       expectedBody: {
@@ -250,7 +250,7 @@ describe('apiClient network policy', () => {
   it('rejects an invalid success response before delivering data', async () => {
     server.use(
       http.get('https://api.example.test/api/users/me', () =>
-        HttpResponse.json({ ...USER_RESPONSE, cedula: 'private-value' }),
+        HttpResponse.json({ ...USER_RESPONSE, document_number: 'private-value' }),
       ),
     )
     const client = createApiClient({

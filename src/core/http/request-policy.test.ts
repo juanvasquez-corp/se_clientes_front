@@ -7,13 +7,13 @@ describe('buildJsonBody', () => {
     const source = Object.freeze({
       name: 'Ana',
       email: 'ana@example.com',
-      rol: 'master',
+      role: 'master',
       is_active: true,
     })
 
-    const body = buildJsonBody(source, ['name', 'email', 'rol'] as const)
+    const body = buildJsonBody(source, ['name', 'email', 'role'] as const)
 
-    expect(body).toEqual({ name: 'Ana', email: 'ana@example.com', rol: 'master' })
+    expect(body).toEqual({ name: 'Ana', email: 'ana@example.com', role: 'master' })
     expect(body).not.toBe(source)
     expect(source).toHaveProperty('is_active', true)
   })

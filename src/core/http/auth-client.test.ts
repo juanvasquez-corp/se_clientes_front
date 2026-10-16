@@ -54,7 +54,7 @@ describe('authClient network policy', () => {
         expect(request.headers.get('content-type')).toContain('application/json')
         expect(await request.json()).toEqual({
           email: 'ana@example.com',
-          psswd: 'a-secure-initial-password',
+          password: 'a-secure-initial-password',
         })
         return HttpResponse.json(TOKEN_RESPONSE)
       }),
@@ -62,7 +62,7 @@ describe('authClient network policy', () => {
 
     const formState = {
       email: 'ana@example.com',
-      psswd: 'a-secure-initial-password',
+      password: 'a-secure-initial-password',
       remember: true,
     }
 
@@ -131,7 +131,7 @@ describe('authClient network policy', () => {
     const client = createAuthClient(createConfig({ getCsrfToken }))
 
     await client.getCsrf()
-    await client.login({ email: 'ana@example.com', psswd: 'password-value' })
+    await client.login({ email: 'ana@example.com', password: 'password-value' })
 
     expect(getCsrfToken).not.toHaveBeenCalled()
   })
@@ -182,7 +182,7 @@ describe('authClient network policy', () => {
     let caughtError: unknown
 
     try {
-      await client.login({ email: 'ana@example.com', psswd: privatePassword })
+      await client.login({ email: 'ana@example.com', password: privatePassword })
     } catch (error: unknown) {
       caughtError = error
     }
@@ -214,7 +214,7 @@ describe('authClient network policy', () => {
     try {
       await createAuthClient(createConfig()).login({
         email: 'ana@example.com',
-        psswd: privatePassword,
+        password: privatePassword,
       })
     } catch (error: unknown) {
       caughtError = error

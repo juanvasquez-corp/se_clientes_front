@@ -15,7 +15,7 @@ interface Profile {
   last_name: string | null
   email: string
   phone_number: string | null
-  rol: 'superadmin' | 'master' | 'visualizer'
+  role: 'superadmin' | 'master' | 'visualizer'
   is_active: boolean
 }
 
@@ -31,7 +31,7 @@ const baseProfile: Profile = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: null,
-  rol: 'master',
+  role: 'master',
   is_active: true,
 }
 
@@ -148,7 +148,7 @@ async function expectAxe(page: Page) {
 
 for (const role of ['superadmin', 'master', 'visualizer'] as const) {
   test(`renders the six-field ${role} profile with exact permissions`, async ({ page }) => {
-    const profile = { ...baseProfile, rol: role }
+    const profile = { ...baseProfile, role }
     const control = await mockProfileApp(page, profile)
     await page.goto(profileUrl)
 
@@ -169,7 +169,7 @@ for (const role of ['superadmin', 'master', 'visualizer'] as const) {
       }
       await expect(page.locator('dt', { hasText: 'Rol' })).toBeVisible()
       await expect(page.locator('dt', { hasText: 'Estado' })).toBeVisible()
-      await expect(page.locator('[name="rol"], [name="is_active"]')).toHaveCount(0)
+      await expect(page.locator('[name="role"], [name="is_active"]')).toHaveCount(0)
     }
     expect(control.getCount()).toBe(1)
     await expectNoOverflow(page)

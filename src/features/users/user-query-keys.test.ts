@@ -82,10 +82,10 @@ describe('user directory query keys', () => {
   })
 
   it('does not leak invalid target identifiers into detail query keys and rejects invalid account UUID', () => {
-    const invalidCedulaKey = userDetailQueryKey(FIRST_ACCOUNT_UUID, '1023456789')
+    const invalidDocumentNumberKey = userDetailQueryKey(FIRST_ACCOUNT_UUID, '1023456789')
     const invalidPathKey = userDetailQueryKey(FIRST_ACCOUNT_UUID, '../me')
 
-    expect(invalidCedulaKey).toEqual([
+    expect(invalidDocumentNumberKey).toEqual([
       'users',
       'account',
       FIRST_ACCOUNT_UUID,
@@ -99,7 +99,7 @@ describe('user directory query keys', () => {
       'detail',
       'not-found',
     ])
-    expect(Object.isFrozen(invalidCedulaKey)).toBe(true)
+    expect(Object.isFrozen(invalidDocumentNumberKey)).toBe(true)
     expect(() => userDetailQueryKey('internal-id', TARGET_USER_UUID)).toThrow()
   })
 })

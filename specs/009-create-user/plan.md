@@ -6,7 +6,7 @@
 
 ## Resumen técnico
 
-Implementar formulario administrativo RHF+Zod reutilizando schemas de campos. El builder produce exactamente `cedula,name,last_name,email,phone_number,psswd,rol`; nunca `is_active`. La mutación no reintenta y navega al detalle devuelto.
+Implementar formulario administrativo RHF+Zod reutilizando schemas de campos. El builder produce exactamente `document_number,name,last_name,email,phone_number,password,role`; nunca `is_active`. La cédula corresponde a `document_number`. La mutación no reintenta y navega al detalle devuelto.
 
 ## Archivos previstos
 
@@ -24,9 +24,9 @@ Implementar formulario administrativo RHF+Zod reutilizando schemas de campos. El
 
 | Función | Entrada | Salida | RF |
 |---|---|---|---|
-| `normalizeCedula` | texto | dígitos como string, ceros intactos | RF-3 |
+| `normalizeDocumentNumber` | texto | dígitos como string, ceros intactos | RF-3 |
 | `buildCreateUserPayload` | valores válidos | payload exacto | RF-7 |
-| `clearSensitiveAfter401` | valores | mismos valores con `psswd=''` | RF-12 |
+| `clearSensitiveAfter401` | valores | mismos valores con `password=''` | RF-12 |
 
 No aplica `hoy`.
 

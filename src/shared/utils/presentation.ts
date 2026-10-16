@@ -1,6 +1,6 @@
 import type { components } from '../../contracts/generated/api'
 
-export type UserRole = components['schemas']['UserResponse']['rol']
+export type UserRole = components['schemas']['UserResponse']['role']
 
 export type RoleBadgeVariant =
   | 'role-superadmin'

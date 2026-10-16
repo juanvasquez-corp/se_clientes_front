@@ -87,7 +87,7 @@ function EditableProfileForm({
   onSubmit,
   profile,
 }: ProfileFormProps) {
-  const role = rolePresentation(profile.rol)
+  const role = rolePresentation(profile.role)
   const status = statusPresentation(profile.is_active)
   const isPending = interaction.state === 'pending'
   const {
@@ -275,7 +275,7 @@ function EditableProfileForm({
 }
 
 export function ProfileForm(props: ProfileFormProps) {
-  if (profileModeForRole(props.profile.rol) === 'readonly') return null
+  if (profileModeForRole(props.profile.role) === 'readonly') return null
 
   return <EditableProfileForm {...props} />
 }

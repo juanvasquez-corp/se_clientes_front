@@ -24,7 +24,7 @@ const USERS: readonly UserResponse[] = [
     last_name: null,
     email: 'ana@example.com',
     phone_number: null,
-    rol: 'superadmin',
+    role: 'superadmin',
     is_active: true,
   },
   {
@@ -33,7 +33,7 @@ const USERS: readonly UserResponse[] = [
     last_name: 'Torres',
     email: 'beatriz.torres@example.com',
     phone_number: null,
-    rol: 'master',
+    role: 'master',
     is_active: true,
   },
 ]

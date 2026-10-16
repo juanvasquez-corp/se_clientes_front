@@ -32,7 +32,7 @@ const PROFILE: UserResponse = {
   last_name: 'López',
   email: 'ana@example.com',
   phone_number: '+57 300 123 4567',
-  rol: 'master',
+  role: 'master',
   is_active: true,
 }
 
@@ -73,7 +73,7 @@ function authenticate(store: SessionStore, profile: UserResponse): void {
     lastName: profile.last_name,
     email: profile.email,
     phoneNumber: profile.phone_number,
-    role: profile.rol,
+    role: profile.role,
     isActive: profile.is_active,
   })
 }
@@ -370,7 +370,7 @@ describe('ProfileUpdateWorkflow', () => {
               { type: 'value_error', loc: ['body', 'email'], msg: 'Correo rechazado' },
               {
                 type: 'value_error',
-                loc: ['body', 'cedula'],
+                loc: ['body', 'document_number'],
                 msg: 'Mensaje desconocido',
                 input: 'private-input',
                 ctx: { private: 'private-context' },

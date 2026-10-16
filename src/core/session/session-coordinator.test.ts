@@ -29,7 +29,7 @@ const USER_RESPONSE = {
   last_name: 'Pérez',
   email: 'ana@example.com',
   phone_number: '3001234567',
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 
@@ -316,7 +316,7 @@ describe('initial session coordinator', () => {
     const handlers = successHandlers(order)
     handlers[2] = http.get('https://api.example.test/api/users/me', () => {
       order.push('profile')
-      return HttpResponse.json({ ...USER_RESPONSE, cedula: 'must-not-be-public' })
+      return HttpResponse.json({ ...USER_RESPONSE, document_number: 'must-not-be-public' })
     })
     server.use(...handlers)
     const { coordinator, navigate, sessionStore } = createRestorationHarness()

@@ -30,7 +30,7 @@ const USER_RESPONSE = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: null,
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 
@@ -109,8 +109,8 @@ function sourceFor(method: Exclude<MutationMethod, 'DELETE'>) {
       return {
         source: {
           email: 'ana@example.com',
-          psswd: 'private-password-value',
-          cedula: 'private-identity-value',
+          password: 'private-password-value',
+          document_number: 'private-identity-value',
         },
         allowedKeys: ['email'] as const,
       }
@@ -119,8 +119,8 @@ function sourceFor(method: Exclude<MutationMethod, 'DELETE'>) {
         source: {
           name: 'Ana',
           email: 'ana@example.com',
-          psswd: 'private-password-value',
-          cedula: 'private-identity-value',
+          password: 'private-password-value',
+          document_number: 'private-identity-value',
         },
         allowedKeys: ['name', 'email'] as const,
       }
@@ -128,8 +128,8 @@ function sourceFor(method: Exclude<MutationMethod, 'DELETE'>) {
       return {
         source: {
           is_active: false,
-          psswd: 'private-password-value',
-          cedula: 'private-identity-value',
+          password: 'private-password-value',
+          document_number: 'private-identity-value',
         },
         allowedKeys: ['is_active'] as const,
       }
@@ -190,7 +190,7 @@ describe('mutation 401 policy with the real session coordinator', () => {
           expect(request.headers.has('idempotency-key')).toBe(false)
           if (method !== 'DELETE') {
             const body = await request.json()
-            expect(JSON.stringify(body)).not.toMatch(/psswd|password|cedula/i)
+            expect(JSON.stringify(body)).not.toMatch(/password|document_number/i)
           }
           return HttpResponse.json({ detail: 'expired' }, { status: 401 })
         }),
@@ -220,7 +220,7 @@ describe('mutation 401 policy with the real session coordinator', () => {
       })
       const serialized = JSON.stringify(outcome)
       expect(serialized).not.toMatch(
-        /private|password|psswd|cedula|access|csrf|axios|config|request|response/i,
+        /private|password|document_number|access|csrf|axios|config|request|response/i,
       )
     },
   )

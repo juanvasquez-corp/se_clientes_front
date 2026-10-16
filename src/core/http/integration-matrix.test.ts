@@ -14,7 +14,7 @@ const USER_RESPONSE = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: null,
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 
@@ -200,7 +200,7 @@ describe('HTTP integration matrix', () => {
       http.get('https://api.example.test/api/users/me', () => {
         if (responseKind === 'valid') return HttpResponse.json(USER_RESPONSE)
         if (responseKind === 'invalid') {
-          return HttpResponse.json({ ...USER_RESPONSE, cedula: 'private-value' })
+          return HttpResponse.json({ ...USER_RESPONSE, document_number: 'private-value' })
         }
         return new HttpResponse('{"uuid":', {
           status: 200,

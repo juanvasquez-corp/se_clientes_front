@@ -13,7 +13,7 @@ const USER: UserResponse = {
   last_name: 'Ramírez',
   email: 'carlos.ramirez@example.com',
   phone_number: '+57 310 555 0199',
-  rol: 'master',
+  role: 'master',
   is_active: true,
 }
 
@@ -96,19 +96,19 @@ describe('UserDetailCard', () => {
   ] as const)(
     'presents role=%s and is_active=%s with centralized accessible Badge variants',
     (role, isActive, roleLabel, roleVariant, statusLabel, statusVariant) => {
-      renderDetailCard({ ...USER, rol: role, is_active: isActive })
+      renderDetailCard({ ...USER, role, is_active: isActive })
 
       expect(screen.getByText(roleLabel).getAttribute('data-variant')).toBe(roleVariant)
       expect(screen.getByText(statusLabel).getAttribute('data-variant')).toBe(statusVariant)
     },
   )
 
-  it('never renders public UUID, cedula, internal id, dates, passwords or hashes even if extra runtime keys are present', () => {
+  it('never renders public UUID, document_number, internal id, dates, passwords or hashes even if extra runtime keys are present', () => {
     const leakedCandidate = {
       ...USER,
-      cedula: '1023456789',
+      document_number: '1023456789',
       id: 42,
-      psswd: 'PlainSecret123!',
+      password: 'PlainSecret123!',
       password_hash: '$2b$12$secretHashValue',
       created_at: '2026-10-01T10:00:00Z',
       updated_at: '2026-10-02T12:00:00Z',
@@ -126,7 +126,7 @@ describe('UserDetailCard', () => {
     expect(content).not.toContain('2026-10-01')
     expect(content).not.toContain('2026-10-02')
     expect(content).not.toContain('2026-10-03')
-    expect(content).not.toMatch(/cédula|cedula|uuid|identificador|contraseña|password|hash|fecha/iu)
+    expect(content).not.toMatch(/cédula|document_number|uuid|identificador|contraseña|password|hash|fecha/iu)
     expect(container.querySelectorAll('dt')).toHaveLength(6)
   })
 

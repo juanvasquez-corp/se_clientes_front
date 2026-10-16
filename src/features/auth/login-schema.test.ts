@@ -8,7 +8,7 @@ describe('login credential validation', () => {
     ['   ', 'Ingresa tu correo electrónico.'],
     ['correo-invalido', 'Ingresa un correo electrónico válido.'],
   ])('rejects invalid email %j with a Spanish UI message', (email, message) => {
-    const result = loginInputSchema.safeParse({ email, psswd: 'secret' })
+    const result = loginInputSchema.safeParse({ email, password: 'secret' })
 
     expect(result.success).toBe(false)
     if (!result.success) {
@@ -20,39 +20,39 @@ describe('login credential validation', () => {
     expect(
       normalizeLoginInput({
         email: '  Usuario@Example.COM  ',
-        psswd: '  contraseña sin alterar  ',
+        password: '  contraseña sin alterar  ',
       }),
     ).toEqual({
       email: 'usuario@example.com',
-      psswd: '  contraseña sin alterar  ',
+      password: '  contraseña sin alterar  ',
     })
   })
 
   it.each([
     ['', 'Ingresa tu contraseña.'],
     ['a'.repeat(129), 'La contraseña no puede superar 128 caracteres.'],
-  ])('rejects a password outside its limits', (psswd, message) => {
-    const result = loginInputSchema.safeParse({ email: 'user@example.com', psswd })
+  ])('rejects a password outside its limits', (password, message) => {
+    const result = loginInputSchema.safeParse({ email: 'user@example.com', password })
 
     expect(result.success).toBe(false)
     if (!result.success) {
-      expect(result.error.issues[0]).toMatchObject({ path: ['psswd'], message })
+      expect(result.error.issues[0]).toMatchObject({ path: ['password'], message })
     }
   })
 
   it('accepts and preserves a password at the exact 128-character limit', () => {
-    const psswd = ` ${'a'.repeat(126)} `
+    const password = ` ${'a'.repeat(126)} `
 
-    expect(normalizeLoginInput({ email: 'USER@example.com', psswd })).toEqual({
+    expect(normalizeLoginInput({ email: 'USER@example.com', password })).toEqual({
       email: 'user@example.com',
-      psswd,
+      password,
     })
   })
 
   it.each([
-    [{ email: 'user@example.com', psswd: 'secret', remember: true }],
-    [{ email: 42, psswd: 'secret' }],
-    [{ email: 'user@example.com', psswd: false }],
+    [{ email: 'user@example.com', password: 'secret', remember: true }],
+    [{ email: 42, password: 'secret' }],
+    [{ email: 'user@example.com', password: false }],
   ])('rejects extra properties and incorrect field types', (candidate) => {
     expect(loginInputSchema.safeParse(candidate).success).toBe(false)
   })

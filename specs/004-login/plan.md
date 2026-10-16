@@ -12,7 +12,7 @@ Implementar el login como feature vertical: schema RHF+Zod, servicio sobre `auth
 
 | Ruta | Responsabilidad | RF |
 |---|---|---|
-| `src/features/auth/login-schema.ts` | Validar/normalizar `email`, `psswd` | RF-2 |
+| `src/features/auth/login-schema.ts` | Validar/normalizar `email`, `password` | RF-2 |
 | `src/features/auth/retry-after.ts` | Interpretar segundos/fecha/fallback y vencimiento | RF-6, RF-7 |
 | `src/core/session/auth-api.ts` | `POST /api/auth/login` con contrato validado; Spec 005 lo amplía con CSRF/refresh/logout | RF-3–RF-8 |
 | `src/core/session/session-store.ts` | Credenciales e identidad solo memoria; extensible por Spec 005 | RF-4, RF-9 |
@@ -23,7 +23,7 @@ Implementar el login como feature vertical: schema RHF+Zod, servicio sobre `auth
 ## Interfaces y funciones puras
 
 ```ts
-type LoginInput = { email: string; psswd: string }
+type LoginInput = { email: string; password: string }
 type LoginSuccess = { accessToken: string; csrfToken: string; expiresIn: number }
 type LoginSessionPort = { acceptLogin(tokens: LoginSuccess): Promise<User> }
 ```
@@ -32,7 +32,7 @@ type LoginSessionPort = { acceptLogin(tokens: LoginSuccess): Promise<User> }
 |---|---|---|---|
 | `parseRetryAfter` | header, `hoy: Date` | fecha de desbloqueo; fallback +5 min | RF-6 |
 | `remainingLockMs` | fecha, `hoy: Date` | milisegundos no negativos | RF-7 |
-| `normalizeLoginInput` | valores formulario | email minúscula + payload `psswd` | RF-2 |
+| `normalizeLoginInput` | valores formulario | email minúscula + payload `password` | RF-2 |
 
 ## Algoritmo
 

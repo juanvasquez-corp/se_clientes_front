@@ -19,7 +19,7 @@ const PROFILE: UserResponse = {
   last_name: 'López',
   email: 'ana@example.com',
   phone_number: '+57 300 123 4567',
-  rol: 'master',
+  role: 'master',
   is_active: true,
 }
 
@@ -72,7 +72,7 @@ describe('ProfileForm', () => {
   it.each(['master', 'superadmin'] as const)(
     'renders exactly four editable profile controls for %s',
     async (role) => {
-      const { container, scope } = await renderForm({ profile: { ...PROFILE, rol: role } })
+      const { container, scope } = await renderForm({ profile: { ...PROFILE, role } })
       const controls = container.querySelectorAll('input, select, textarea')
       const name = scope.getByRole<HTMLInputElement>('textbox', {
         name: /nombre.*obligatorio/i,
@@ -104,7 +104,7 @@ describe('ProfileForm', () => {
       ])
       expect(scope.getByText(role === 'master' ? 'Master' : 'Superadministrador')).toBeTruthy()
       expect(scope.getByText('Activo')).toBeTruthy()
-      expect(container.querySelector('[name="rol"], [name="is_active"]')).toBeNull()
+      expect(container.querySelector('[name="role"], [name="is_active"]')).toBeNull()
       expect(container.textContent).not.toMatch(/cédula|contraseña|password|uuid|eliminar/iu)
     },
   )
@@ -123,7 +123,7 @@ describe('ProfileForm', () => {
     async (role) => {
       const user = userEvent.setup()
       const onSubmit = vi.fn<(payload: ProfileUpdate) => void>()
-      const { scope } = await renderForm({ onSubmit, profile: { ...PROFILE, rol: role } })
+      const { scope } = await renderForm({ onSubmit, profile: { ...PROFILE, role } })
 
       await act(async () => { await user.click(scope.getByRole('button', { name: 'Guardar cambios' })) })
 
@@ -219,7 +219,7 @@ describe('ProfileForm', () => {
     const onSubmit = vi.fn<(payload: ProfileUpdate) => void>()
     const { container } = await renderForm({
       onSubmit,
-      profile: { ...PROFILE, rol: 'visualizer' },
+      profile: { ...PROFILE, role: 'visualizer' },
     })
 
     expect(container.querySelector('form, input, button')).toBeNull()

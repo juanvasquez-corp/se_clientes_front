@@ -25,7 +25,7 @@ function UserCard({ user, currentUserUuid, actionPolicy }: UserCardProps) {
   const titleId = useId()
   if (validatedUserUuid(user) === undefined) return null
 
-  const role = rolePresentation(user.rol)
+  const role = rolePresentation(user.role)
   const status = statusPresentation(user.is_active)
 
   return (

@@ -8,7 +8,7 @@ export const loginInputSchema = z.strictObject(
       .min(1, 'Ingresa tu correo electrónico.')
       .toLowerCase()
       .pipe(z.email('Ingresa un correo electrónico válido.')),
-    psswd: z
+    password: z
       .string({ error: 'Ingresa una contraseña válida.' })
       .min(1, 'Ingresa tu contraseña.')
       .max(128, 'La contraseña no puede superar 128 caracteres.'),

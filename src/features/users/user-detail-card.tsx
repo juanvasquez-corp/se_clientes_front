@@ -31,7 +31,7 @@ function UserDetailFact({ label, value }: UserDetailFactProps) {
 
 export function UserDetailCard({ user }: UserDetailCardProps) {
   const initials = getInitials(user.name, user.last_name)
-  const role = rolePresentation(user.rol)
+  const role = rolePresentation(user.role)
   const status = statusPresentation(user.is_active)
 
   return (

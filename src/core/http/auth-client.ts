@@ -47,7 +47,7 @@ export interface AuthClientConfig {
 
 export interface LoginCredentials {
   email: string
-  psswd: string
+  password: string
 }
 
 export interface AuthClient {
@@ -173,7 +173,7 @@ export function createAuthClient(config: AuthClientConfig): AuthClient {
     },
     async login(credentials) {
       assertAuthTarget(config.apiBaseUrl, endpoints.login, 'login')
-      const body = buildJsonBody({ ...credentials }, ['email', 'psswd'] as const)
+      const body = buildJsonBody({ ...credentials }, ['email', 'password'] as const)
       return requestValidated(client, 'POST', endpoints.login, tokenResponseSchema, undefined, body)
     },
     async refresh() {

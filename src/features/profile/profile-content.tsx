@@ -14,7 +14,7 @@ export function ProfileContent({
   editableContent,
   profile,
 }: ProfileContentProps) {
-  const mode = profileModeForRole(profile.rol)
+  const mode = profileModeForRole(profile.role)
 
   if (mode === 'editable') return editableContent
 

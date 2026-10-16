@@ -25,7 +25,7 @@ interface UserRowProps {
 function UserRow({ user, currentUserUuid, actionPolicy }: UserRowProps) {
   if (validatedUserUuid(user) === undefined) return null
 
-  const role = rolePresentation(user.rol)
+  const role = rolePresentation(user.role)
   const status = statusPresentation(user.is_active)
 
   return (

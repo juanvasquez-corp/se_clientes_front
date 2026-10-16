@@ -261,7 +261,7 @@ describe('classifyApiFailure', () => {
 
     const rejectedBody = {
       detail: 'Mensaje no confiable',
-      cedula: 'private-identity-value',
+      document_number: 'private-identity-value',
     }
     const failure = classifyApiFailure(409, rejectedBody)
 
@@ -279,8 +279,8 @@ describe('classifyApiFailure', () => {
     const body = {
       access_token: 'private-access-value',
       cookie: 'private-cookie-value',
-      psswd: 'private-password-value',
-      cedula: 'private-identity-value',
+      password: 'private-password-value',
+      document_number: 'private-identity-value',
     }
     const failure = classifyApiFailure(500, body)
 
@@ -306,7 +306,7 @@ describe('ApiError', () => {
   it('copies only allowlisted failure diagnostics', () => {
     const failure = classifyApiFailure(500, undefined)
     Object.defineProperty(failure, 'issues', {
-      value: [{ type: 'injected', loc: ['body', 'psswd'], msg: 'private-value' }],
+      value: [{ type: 'injected', loc: ['body', 'password'], msg: 'private-value' }],
       enumerable: true,
     })
     const contaminatedFailure = {

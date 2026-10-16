@@ -8,7 +8,7 @@ const validUser = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: '3001234567',
-  rol: 'superadmin',
+  role: 'superadmin',
   is_active: true,
 } as const
 
@@ -20,7 +20,7 @@ describe('userResponseSchema', () => {
     })
   })
 
-  it.each(['cedula', 'id', 'psswd', 'hashed_psswd', 'created_at'])(
+  it.each(['document_number', 'id', 'password', 'password_hash', 'created_at'])(
     'rejects the non-public %s property',
     (property) => {
       expect(
@@ -34,7 +34,7 @@ describe('userResponseSchema', () => {
 
   it.each([
     { ...validUser, uuid: 'not-a-uuid' },
-    { ...validUser, rol: 'admin' },
+    { ...validUser, role: 'admin' },
     { ...validUser, is_active: 'true' },
     { ...validUser, phone_number: undefined },
   ])('rejects invalid or incomplete public user data', (candidate) => {

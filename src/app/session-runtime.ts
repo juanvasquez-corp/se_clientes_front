@@ -122,7 +122,7 @@ export function createBrowserSessionRuntime(
         last_name: state.identity.lastName,
         email: state.identity.email,
         phone_number: state.identity.phoneNumber,
-        rol: state.identity.role,
+        role: state.identity.role,
         is_active: state.identity.isActive,
       },
     })

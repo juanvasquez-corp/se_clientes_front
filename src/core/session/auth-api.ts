@@ -67,7 +67,7 @@ function toSessionIdentity(user: UserResponse): SessionIdentity {
     lastName: user.last_name,
     email: user.email,
     phoneNumber: user.phone_number,
-    role: user.rol,
+    role: user.role,
     isActive: user.is_active,
   }
 }

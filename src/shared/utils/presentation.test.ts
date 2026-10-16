@@ -8,7 +8,7 @@ import {
   statusPresentation,
 } from './presentation'
 
-type UserRole = components['schemas']['UserResponse']['rol']
+type UserRole = components['schemas']['UserResponse']['role']
 
 describe('presentation utilities', () => {
   it.each([

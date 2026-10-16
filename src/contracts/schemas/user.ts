@@ -9,7 +9,7 @@ export const userResponseSchema = z.strictObject({
   last_name: z.string().nullable(),
   email: z.email(),
   phone_number: z.string().nullable(),
-  rol: userRoleSchema,
+  role: userRoleSchema,
   is_active: z.boolean(),
 })
 

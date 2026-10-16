@@ -15,7 +15,7 @@ const USER_RESPONSE = {
   last_name: 'López',
   email: 'ana@example.com',
   phone_number: '+57 300 123 4567',
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 
@@ -46,7 +46,7 @@ describe('profile API', () => {
     })
   })
 
-  it.each(['cedula', 'id', 'created_at', 'psswd', 'hashed_psswd'])(
+  it.each(['document_number', 'id', 'created_at', 'password', 'password_hash'])(
     'rejects a profile containing private property %s',
     async (property) => {
       server.use(

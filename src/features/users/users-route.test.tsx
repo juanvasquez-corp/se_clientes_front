@@ -40,7 +40,7 @@ function createUsersApiSpy(): UsersApi & { list: ReturnType<typeof vi.fn<UsersAp
             last_name: 'Torres',
             email: 'bea@example.com',
             phone_number: null,
-            rol: 'master',
+            role: 'master',
             is_active: true,
           },
         ],
@@ -242,7 +242,7 @@ describe('production users route', () => {
             last_name: null,
             email: 'unique@example.com',
             phone_number: null,
-            rol: 'master',
+            role: 'master',
             is_active: true,
           }],
         })

@@ -28,7 +28,7 @@ function ProfileFact({ label, value }: ProfileFactProps) {
 }
 
 export function ProfileReadonly({ profile }: ProfileReadonlyProps) {
-  const role = rolePresentation(profile.rol)
+  const role = rolePresentation(profile.role)
   const status = statusPresentation(profile.is_active)
 
   return (

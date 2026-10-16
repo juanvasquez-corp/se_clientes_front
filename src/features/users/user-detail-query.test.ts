@@ -26,7 +26,7 @@ const USER_RESPONSE = {
   last_name: null,
   email: 'carlos@example.com',
   phone_number: null,
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 
@@ -115,7 +115,7 @@ describe('user detail query options', () => {
 
   it.each([
     ['empty string', ''],
-    ['numeric cedula', '1023456789'],
+    ['numeric document_number', '1023456789'],
     ['path traversal', '../me'],
     ['non-uuid', 'not-a-uuid'],
   ])('converts invalid target %s into typed not-found with 0 HTTP requests and no leaked identifier', async (_label, invalidTarget) => {
@@ -212,7 +212,7 @@ describe('user detail query options', () => {
     server.use(
       http.get(USER_DETAIL_URL, () => {
         requests += 1
-        return HttpResponse.json({ ...USER_RESPONSE, cedula: '1023456789' })
+        return HttpResponse.json({ ...USER_RESPONSE, document_number: '1023456789' })
       }),
     )
 

@@ -17,7 +17,7 @@ describe('API error detail schemas', () => {
       detail: [
         {
           type: 'string_too_short',
-          loc: ['body', 'psswd'],
+          loc: ['body', 'password'],
           msg: 'String should have at least 15 characters',
           input: 'private-input',
           ctx: { min_length: 15 },
@@ -31,7 +31,7 @@ describe('API error detail schemas', () => {
         detail: [
           {
             type: 'string_too_short',
-            loc: ['body', 'psswd'],
+            loc: ['body', 'password'],
             msg: 'String should have at least 15 characters',
           },
         ],

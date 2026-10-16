@@ -27,7 +27,7 @@ const CURRENT_USER: UserResponse = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: '+57 300 111 1111',
-  rol: 'superadmin',
+  role: 'superadmin',
   is_active: true,
 }
 const OTHER_USER: UserResponse = {
@@ -36,7 +36,7 @@ const OTHER_USER: UserResponse = {
   last_name: 'Torres',
   email: 'bea@example.com',
   phone_number: null,
-  rol: 'master',
+  role: 'master',
   is_active: true,
 }
 const INACTIVE_USER: UserResponse = {
@@ -45,7 +45,7 @@ const INACTIVE_USER: UserResponse = {
   last_name: 'Rojas',
   email: 'carlos@example.com',
   phone_number: null,
-  rol: 'visualizer',
+  role: 'visualizer',
   is_active: false,
 }
 const USERS = [CURRENT_USER, OTHER_USER, INACTIVE_USER] as const
@@ -219,7 +219,7 @@ describe('UserCardList', () => {
       ...OTHER_USER,
       name: maliciousName,
       email: 'correo'.repeat(20) + '@example.com',
-      cedula: 'private-value',
+      document_number: 'private-value',
       created_at: 'private-date',
     }
     const { container } = await renderRepresentations({ users: [user] })

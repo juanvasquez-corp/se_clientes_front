@@ -37,7 +37,7 @@ const PROFILE = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: null,
-  rol: 'superadmin',
+  role: 'superadmin',
   is_active: true,
 } as const
 

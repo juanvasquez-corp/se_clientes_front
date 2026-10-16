@@ -21,7 +21,7 @@ function profile(role: Role) {
     last_name: 'Fixture',
     email: 'navigation@example.test',
     phone_number: null,
-    rol: role,
+    role,
     is_active: true,
   } as const
 }

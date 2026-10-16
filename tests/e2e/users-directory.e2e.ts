@@ -25,7 +25,7 @@ const account = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: null,
-  rol: 'superadmin',
+  role: 'superadmin',
   is_active: true,
 } as const
 
@@ -35,7 +35,7 @@ const other = {
   last_name: 'Torres',
   email: 'bea@example.com',
   phone_number: null,
-  rol: 'master',
+  role: 'master',
   is_active: true,
 } as const
 
@@ -59,7 +59,7 @@ async function preflight(route: Route): Promise<boolean> {
 }
 
 function profile(role: Role) {
-  return { ...account, rol: role }
+  return { ...account, role }
 }
 
 async function mockSession(page: Page, role: Role = 'superadmin') {
@@ -203,7 +203,7 @@ test('lists, paginates, searches exact email, clears and exposes no deferred con
   await expect(page.getByText('No existe una cuenta para ese correo.')).toBeVisible()
   await expect(page.locator('body')).not.toContainText('backend-private-message')
   await expect(page.getByRole('link', { name: 'Crear usuario' })).toHaveCount(1)
-  await expect(page.locator('input[name="rol"], input[name="status"], input[name="name"]')).toHaveCount(0)
+  await expect(page.locator('input[name="role"], input[name="status"], input[name="name"]')).toHaveCount(0)
 })
 
 test('keeps localized loading during page replacement and renders valid empty state', async ({

@@ -34,7 +34,7 @@ interface FixtureProfile {
   readonly last_name: string | null
   readonly email: string
   readonly phone_number: string | null
-  readonly rol: 'superadmin' | 'master' | 'visualizer'
+  readonly role: 'superadmin' | 'master' | 'visualizer'
   readonly is_active: boolean
 }
 
@@ -44,7 +44,7 @@ const profile: FixtureProfile = {
   last_name: null,
   email: ['fixture', 'example.test'].join('@'),
   phone_number: null,
-  rol: 'superadmin',
+  role: 'superadmin',
   is_active: true,
 }
 const tokens = {
@@ -192,7 +192,7 @@ test.describe('session lifecycle fixture', () => {
     test(`real app restores before resolving ${initialPath}`, async ({ page }) => {
       const order: Step[] = []
       let releaseCsrf: (() => void) | undefined
-      const restoredProfile: FixtureProfile = { ...profile, rol: 'master' }
+      const restoredProfile: FixtureProfile = { ...profile, role: 'master' }
       await page.route(endpoint('/auth/csrf'), async (route) => {
         if (await handlePreflight(route)) return
         order.push('csrf')
@@ -235,6 +235,7 @@ test.describe('session lifecycle fixture', () => {
 
   test('the real app root mounts bootstrap and hides private content', async ({ page }) => {
     let releaseCsrf: (() => void) | undefined
+    let directoryRequests = 0
     await page.route(endpoint('/auth/csrf'), async (route) => {
       await new Promise<void>((resolve) => {
         releaseCsrf = resolve
@@ -243,6 +244,20 @@ test.describe('session lifecycle fixture', () => {
     })
     await page.route(endpoint('/auth/refresh'), (route) => route.fulfill({ json: tokens }))
     await page.route(endpoint('/users/me'), (route) => route.fulfill({ json: profile }))
+    // El superadmin carga el directorio al restaurar la sesión; también es simulado.
+    await page.route(`${endpoint('/users')}?*`, async (route) => {
+      if (await handlePreflight(route)) return
+      directoryRequests += 1
+      await route.fulfill({
+        json: {
+          total_records: 0,
+          current_page: 1,
+          total_pages: 1,
+          page_size: 10,
+          data: [],
+        },
+      })
+    })
 
     await page.goto('/')
     await expect(page.getByRole('status')).toContainText('Restaurando sesión')
@@ -250,6 +265,7 @@ test.describe('session lifecycle fixture', () => {
     await expect.poll(() => releaseCsrf !== undefined).toBe(true)
     releaseCsrf?.()
     await expect(page.getByRole('navigation', { name: 'Navegación principal' })).toBeVisible()
+    await expect.poll(() => directoryRequests).toBe(1)
   })
 
   test('hides private content until ordered restoration succeeds', async ({ page }) => {
@@ -564,7 +580,7 @@ test.describe('real browser multi-tab coordination', () => {
       const changedProfile = {
         ...profile,
         uuid: account === 'same' ? profile.uuid : '3a2f7a2e-46f5-4c8a-b47d-524f1f2e1c76',
-        rol: account === 'same' ? 'superadmin' : 'master',
+        role: account === 'same' ? 'superadmin' : 'master',
       } as const
       let receiverProfile = profile
       let profileRequests = 0

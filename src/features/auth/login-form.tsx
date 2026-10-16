@@ -76,7 +76,7 @@ export function LoginForm({ now = systemNow, onSubmit }: LoginFormProps) {
     unknown,
     z.output<typeof loginInputSchema>
   >({
-    defaultValues: { email: '', psswd: '' },
+    defaultValues: { email: '', password: '' },
     resolver: zodResolver(loginInputSchema),
     shouldFocusError: true,
   })
@@ -116,7 +116,7 @@ export function LoginForm({ now = systemNow, onSubmit }: LoginFormProps) {
       if (outcome.kind === 'authenticated') return
 
       setValue('email', input.email)
-      setValue('psswd', '')
+      setValue('password', '')
       setPasswordVisibility('hidden')
       setFeedback(outcome.kind)
       if (outcome.kind === 'rate-limited') {
@@ -137,7 +137,7 @@ export function LoginForm({ now = systemNow, onSubmit }: LoginFormProps) {
   }
 
   const focusPassword = () => {
-    setFocus('psswd')
+    setFocus('password')
   }
 
   const submitForm = (event: BaseSyntheticEvent) => {
@@ -175,14 +175,14 @@ export function LoginForm({ now = systemNow, onSubmit }: LoginFormProps) {
           id="login-password"
           label="Contraseña"
           requirement="required"
-          validation={fieldValidation(errors.psswd?.message)}
+          validation={fieldValidation(errors.password?.message)}
           control={
             <input
               className="pr-14"
               type={passwordIsVisible ? 'text' : 'password'}
               autoComplete="current-password"
               disabled={isRateLimited}
-              {...register('psswd')}
+              {...register('password')}
             />
           }
         />

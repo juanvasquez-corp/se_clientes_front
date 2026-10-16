@@ -14,7 +14,7 @@ const VISUALIZER_PROFILE: UserResponse = {
   last_name: 'López',
   email: 'ana@example.com',
   phone_number: '+57 300 123 4567',
-  rol: 'visualizer',
+  role: 'visualizer',
   is_active: true,
 }
 
@@ -73,7 +73,7 @@ describe('ProfileContent visualizer mode', () => {
         <button type="button">Editar usuario</button>
         <label>
           Cédula
-          <input name="cedula" />
+          <input name="document_number" />
         </label>
       </div>,
     )
@@ -127,7 +127,7 @@ describe('ProfileContent visualizer mode', () => {
     'renders only the explicit editable slot for %s without inventing T5 controls',
     (role) => {
       const container = renderContent(
-        { ...VISUALIZER_PROFILE, rol: role },
+        { ...VISUALIZER_PROFILE, role },
         <p>Composición editable externa</p>,
       )
 

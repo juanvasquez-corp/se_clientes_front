@@ -16,9 +16,9 @@ describe('userSearchSchema', () => {
     { email: 'ana' },
     { email: '@example.com' },
     { email: 'ana@example' },
-    { email: 'ana@example.com', rol: 'master' },
+    { email: 'ana@example.com', role: 'master' },
     { email: 'ana@example.com', name: 'Ana' },
-    { email: 'ana@example.com', cedula: '123' },
+    { email: 'ana@example.com', document_number: '123' },
   ])('rejects an empty, partial or non-strict search: %o', (candidate) => {
     expect(userSearchSchema.safeParse(candidate).success).toBe(false)
   })

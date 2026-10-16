@@ -156,7 +156,7 @@ describe('LoginForm', () => {
     })
     expect(onSubmit).toHaveBeenCalledWith({
       email: 'ana@example.com',
-      psswd: 'private password',
+      password: 'private password',
     })
     expect(screen.getByRole('status').textContent).toContain(
       'Validando tus credenciales.',

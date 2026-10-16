@@ -26,7 +26,7 @@ const CURRENT_USER: UserResponse = {
   last_name: null,
   email: 'ana@example.com',
   phone_number: '+57 300 111 1111',
-  rol: 'superadmin',
+  role: 'superadmin',
   is_active: true,
 }
 const OTHER_USER: UserResponse = {
@@ -35,7 +35,7 @@ const OTHER_USER: UserResponse = {
   last_name: 'Torres',
   email: 'bea@example.com',
   phone_number: null,
-  rol: 'master',
+  role: 'master',
   is_active: true,
 }
 const DUPLICATE_USER: UserResponse = {
@@ -44,7 +44,7 @@ const DUPLICATE_USER: UserResponse = {
   last_name: 'Torres',
   email: 'bea.duplicate@example.com',
   phone_number: '+57 300 333 3333',
-  rol: 'visualizer',
+  role: 'visualizer',
   is_active: false,
 }
 const USERS: readonly UserResponse[] = [CURRENT_USER, OTHER_USER, DUPLICATE_USER]
@@ -219,8 +219,8 @@ describe('UserTable', () => {
       ...OTHER_USER,
       name: maliciousName,
       last_name: '<img src=x onerror=alert(2)>',
-      cedula: 'private-value',
-      hashed_psswd: 'private-hash',
+      document_number: 'private-value',
+      password_hash: 'private-hash',
       created_at: 'private-date',
     }
     const { container } = await renderTable({ users: [privateUser] })
