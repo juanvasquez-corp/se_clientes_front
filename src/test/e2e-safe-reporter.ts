@@ -4,7 +4,7 @@ import { basename } from 'node:path'
 const safeDiagnostic = /^(?:Error: )?(E2E_BACKEND_NOT_READY: (?:transport|http|json|contract|request-timeout|deadline) \(10000 ms\)\.|E2E_BACKEND_INVALID_ORIGIN\.)$/u
 const knownSuites = new Set([
   'login-real.e2e.ts', 'session.spec.ts', 'profile.e2e.ts', 'users-directory.e2e.ts',
-  'login-page.e2e.ts', 'navigation.e2e.ts', 'bootstrap.e2e.ts',
+  'user-detail.e2e.ts', 'login-page.e2e.ts', 'navigation.e2e.ts', 'bootstrap.e2e.ts',
   'interface-foundations.e2e.ts', 'lazy-route-error.e2e.ts',
 ])
 

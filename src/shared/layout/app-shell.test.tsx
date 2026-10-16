@@ -192,8 +192,9 @@ describe('private AppShell navigation', () => {
     `/users/${USER_UUID}/edit`,
   ])('keeps Usuarios active on valid context %s', async (path) => {
     await renderShell('superadmin', path)
+    const navigation = screen.getByRole('navigation', { name: 'Navegación principal' })
     expect(
-      screen.getByRole('link', { name: 'Usuarios' }).getAttribute('aria-current'),
+      within(navigation).getByRole('link', { name: 'Usuarios' }).getAttribute('aria-current'),
     ).toBe('page')
   })
 

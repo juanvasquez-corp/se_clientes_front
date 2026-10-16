@@ -12,7 +12,6 @@ import { UserDetailBreadcrumb } from './user-detail-breadcrumb'
 import { UserDetailCard } from './user-detail-card'
 import {
   claimUserDetailQuery,
-  retainUserDetailQuery,
   userDetailQueryOptions,
 } from './user-detail-query'
 import { displayUserName } from './user-management'
@@ -103,12 +102,6 @@ export function UserDetailPage({
   const queryClient = useQueryClient()
   const [retryError, setRetryError] = useState<Error | null>(null)
   const reportedSessionState = useRef<SessionFailureState | undefined>(undefined)
-  retainUserDetailQuery({
-    accountUuid,
-    queryClient,
-    userUuid,
-    usersApi,
-  })
   const detailQuery = useQuery(
     userDetailQueryOptions(usersApi, accountUuid, userUuid),
   )
@@ -119,8 +112,9 @@ export function UserDetailPage({
         accountUuid,
         queryClient,
         userUuid,
+        usersApi,
       }),
-    [accountUuid, queryClient, userUuid],
+    [accountUuid, queryClient, userUuid, usersApi],
   )
 
   const sessionState =

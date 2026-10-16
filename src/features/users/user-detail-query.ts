@@ -153,12 +153,25 @@ export function claimUserDetailQuery({
   accountUuid,
   queryClient,
   userUuid,
+  usersApi,
 }: {
   readonly accountUuid: string
   readonly queryClient: QueryClient
   readonly userUuid: string
+  readonly usersApi?: Pick<UsersApi, 'getUser'>
 }): () => void {
   const key = retentionMapKey(accountUuid, userUuid)
+  if (
+    usersApi !== undefined &&
+    retainedDetailQueries.get(queryClient)?.has(key) !== true
+  ) {
+    retainUserDetailQuery({
+      accountUuid,
+      queryClient,
+      userUuid,
+      usersApi,
+    })
+  }
   const retained = retainedDetailQueries.get(queryClient)?.get(key)
   if (retained === undefined) return () => undefined
 

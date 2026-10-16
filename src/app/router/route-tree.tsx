@@ -28,9 +28,9 @@ const NewUserRoutePlaceholder = lazyRouteComponent(
   () => import('./route-placeholders'),
   'NewUserRoutePlaceholder',
 )
-const UserDetailRoutePlaceholder = lazyRouteComponent(
-  () => import('./route-placeholders'),
-  'UserDetailRoutePlaceholder',
+const UserDetailRoute = lazyRouteComponent(
+  () => import('../../features/users/users-route'),
+  'UserDetailRoute',
 )
 const UserEditRoutePlaceholder = lazyRouteComponent(
   () => import('./route-placeholders'),
@@ -119,7 +119,28 @@ const userDetailRoute = createRoute({
     parse: (params) => ({ userUuid: parseUserUuid(params.userUuid) }),
     stringify: (params) => ({ userUuid: parseUserUuid(params.userUuid) }),
   },
-  component: UserDetailRoutePlaceholder,
+  beforeLoad: async ({ abortController, context, location, params, preload }) => {
+    const session = context.session.store.getState()
+    if (
+      preload ||
+      location.pathname.endsWith('/edit') ||
+      session.status !== 'authenticated' ||
+      session.identity.role !== 'superadmin'
+    ) {
+      return
+    }
+    const { retainUserDetailQuery } = await import(
+      '../../features/users/user-detail-query'
+    )
+    retainUserDetailQuery({
+      abortSignal: abortController.signal,
+      accountUuid: session.identity.userUuid,
+      queryClient: context.queryClient,
+      userUuid: params.userUuid,
+      usersApi: context.session.usersApi,
+    })
+  },
+  component: UserDetailRoute,
 })
 
 const userEditRoute = createRoute({

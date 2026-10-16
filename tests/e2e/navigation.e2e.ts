@@ -224,7 +224,7 @@ for (const role of ['master', 'visualizer'] as const) {
   })
 }
 
-test('superadmin opens real directory and keeps only child users routes as placeholders', async ({
+test('superadmin opens real directory and detail and keeps only creation and edit routes as placeholders', async ({
   page,
 }) => {
   await mockRestoredSession(page, 'superadmin')
@@ -240,14 +240,25 @@ test('superadmin opens real directory and keeps only child users routes as place
       },
     })
   })
+  await page.route(endpoint(`/users/${USER_UUID}`), async (route) => {
+    if (await preflight(route)) return
+    await route.fulfill({ json: profile('superadmin') })
+  })
   await page.goto('/users')
   await expect(page).toHaveURL(/\/users$/u)
   await expect(page.getByRole('heading', { name: 'Gestión de usuarios' })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Usuarios pendiente' })).toHaveCount(0)
 
+  await page.goto(`/users/${USER_UUID}`)
+  await expect(page).toHaveURL(new RegExp(`/users/${USER_UUID}$`))
+  await expect(page.getByRole('heading', { level: 1, name: 'Detalle de usuario' })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Detalle de usuario pendiente' })).toHaveCount(0)
+  await expect(
+    page.getByRole('navigation', { name: 'Navegación principal' }).getByRole('link', { name: 'Usuarios' }),
+  ).toHaveAttribute('aria-current', 'page')
+
   for (const [path, region] of [
     ['/users/new', 'Creación de usuario pendiente'],
-    [`/users/${USER_UUID}`, 'Detalle de usuario pendiente'],
     [`/users/${USER_UUID}/edit`, 'Edición de usuario pendiente'],
   ] as const) {
     await page.goto(path)

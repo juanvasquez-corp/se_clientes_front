@@ -118,7 +118,7 @@ describe('real login E2E privacy policy', () => {
     expect(playwrightConfig.testMatch).toContain('**/session.spec.ts')
   })
 
-  it('runs preflight after opt-in but before credentials and browser access in all four suites', async () => {
+  it('runs preflight after opt-in but before credentials and browser access in all five suites', async () => {
     vi.stubEnv('RUN_REAL_LOGIN_E2E', '1')
     vi.stubEnv('RUN_REAL_PROFILE_E2E', '1')
     vi.stubEnv('RUN_REAL_USERS_E2E', '1')
@@ -133,16 +133,17 @@ describe('real login E2E privacy policy', () => {
     await import('../../tests/e2e/session.spec')
     await import('../../tests/e2e/profile.e2e')
     await import('../../tests/e2e/users-directory.e2e')
+    await import('../../tests/e2e/user-detail.e2e')
     const realTests = [...registeredTests].filter(([title]) =>
       title.startsWith('real backend') || title.startsWith('each configured role'),
     )
-    expect(realTests).toHaveLength(4)
+    expect(realTests).toHaveLength(5)
     const browser = new Proxy({}, { get() { throw new Error('BROWSER_BEFORE_PREFLIGHT') } })
     for (const [, run] of realTests) {
       await expect(run({ context: browser, page: browser, request: browser }))
         .rejects.toThrow('SAFE_PREFLIGHT_FAILURE')
     }
-    expect(preflight).toHaveBeenCalledTimes(4)
+    expect(preflight).toHaveBeenCalledTimes(5)
     for (const [options] of preflight.mock.calls) expect(options.enabled).toBe(true)
   })
 
@@ -156,10 +157,11 @@ describe('real login E2E privacy policy', () => {
     await import('../../tests/e2e/session.spec')
     await import('../../tests/e2e/profile.e2e')
     await import('../../tests/e2e/users-directory.e2e')
+    await import('../../tests/e2e/user-detail.e2e')
     const realTests = [...registeredTests].filter(([title]) =>
       title.startsWith('real backend') || title.startsWith('each configured role'),
     )
-    expect(realTests).toHaveLength(4)
+    expect(realTests).toHaveLength(5)
     const browser = new Proxy({}, { get() { throw new Error('BROWSER_WHILE_DISABLED') } })
     for (const [, run] of realTests) {
       await expect(run({ context: browser, page: browser })).rejects.toThrow('SYNTHETIC_SKIP')

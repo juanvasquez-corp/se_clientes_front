@@ -14,7 +14,7 @@
   - Hecho cuando: not-found y retry contextual pasan; `MEMORY.md` actualizado.
 - [x] **T6. Integrar actualización contextual.** RF-8
   - Hecho cuando: invalidación mantiene UUID y muestra datos confirmados; `MEMORY.md` actualizado.
-- [ ] **T7. Verificar detalle integral.** RF-1–RF-8
+- [x] **T7. Verificar detalle integral.** RF-1–RF-8
   - Hecho cuando: roles/E2E/backend/móvil/axe/privacidad y puerta integral pasan; `MEMORY.md` actualizado.
 
 ## Matriz RF → tarea
