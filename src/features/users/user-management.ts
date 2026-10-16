@@ -24,6 +24,15 @@ export type DetailBreadcrumbModel =
   | DesktopDetailBreadcrumb
   | MobileDetailBreadcrumb
 
+export interface DetailActionsDecision {
+  readonly isSelf: boolean
+  readonly canEdit: boolean
+  readonly canToggleStatus: boolean
+  readonly canDelete: boolean
+  readonly showSelfRestrictionNotice: boolean
+  readonly targetUserUuid: string | null
+}
+
 function normalizeDetailBreadcrumbLabel(currentLabel?: string): string {
   const trimmed = currentLabel?.trim() ?? ''
   if (
@@ -63,6 +72,37 @@ export function canManageTarget(currentUserUuid: string, targetUserUuid: string)
 
   if (!current.success || !target.success) return false
   return current.data.toLowerCase() !== target.data.toLowerCase()
+}
+
+export function detailActionsFor(
+  currentUserUuid: unknown,
+  targetUserUuid: unknown,
+): DetailActionsDecision {
+  const current = parsePublicUuid(currentUserUuid)
+  const target = parsePublicUuid(targetUserUuid)
+
+  if (current.kind === 'not-found' || target.kind === 'not-found') {
+    return {
+      isSelf: false,
+      canEdit: false,
+      canToggleStatus: false,
+      canDelete: false,
+      showSelfRestrictionNotice: false,
+      targetUserUuid: null,
+    }
+  }
+
+  const canManage = canManageTarget(current.userUuid, target.userUuid)
+  const isSelf = !canManage
+
+  return {
+    isSelf,
+    canEdit: true,
+    canToggleStatus: canManage,
+    canDelete: canManage,
+    showSelfRestrictionNotice: isSelf,
+    targetUserUuid: target.userUuid,
+  }
 }
 
 export function displayUserName(user: UserResponse): string {

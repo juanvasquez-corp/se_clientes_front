@@ -8,7 +8,7 @@
   - Hecho cuando: seis campos/nulos pasan y datos prohibidos no existen; `MEMORY.md` actualizado.
 - [x] **T3. Implementar contexto y breadcrumb responsive.** RF-3
   - Hecho cuando: volver/listado y variante móvil pasan; `MEMORY.md` actualizado.
-- [ ] **T4. Implementar acciones propias y ajenas.** RF-4–RF-6
+- [x] **T4. Implementar acciones propias y ajenas.** RF-4–RF-6
   - Hecho cuando: editar siempre y estado/eliminar solo ajenos pasan; `MEMORY.md` actualizado.
 - [ ] **T5. Integrar estados 404/red/503.** RF-7
   - Hecho cuando: not-found y retry contextual pasan; `MEMORY.md` actualizado.
